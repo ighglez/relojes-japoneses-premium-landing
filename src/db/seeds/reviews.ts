@@ -32,9 +32,9 @@ async function main() {
             createdAt: new Date().toISOString(),
         },
         {
-            name: 'Antonio Fernández',
-            city: 'Bilbao',
-            testimonial: 'Distribuidor confiable con relojes originales. Mi Seiko Presage Cocktail Time es simplemente magnífico. Excelente servicio postventa y asesoramiento profesional.',
+            name: 'Pablo Velasco',
+            city: 'León, España',
+            testimonial: 'Buscaba el modelo Panda desde hacía meses y aquí lo encontré nuevo, a un precio competitivo y con un trato excelente. Me enviaron la factura, el número de seguimiento y fotos antes del envío. Experiencia de 10, muy profesional.',
             approved: true,
             createdAt: new Date().toISOString(),
         }
