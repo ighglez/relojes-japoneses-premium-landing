@@ -86,7 +86,7 @@ export default function FeaturedWatches() {
                     className="w-full mt-4 px-4 py-3 bg-graphite text-ivory text-sm font-medium rounded-lg hover:bg-graphite/90 transition-all duration-300"
                     aria-label={`Solicitar información sobre ${watch.name}`}
                   >
-                    Solicitar información
+                    Consultar disponibilidad
                   </button>
                 </div>
               </motion.div>
