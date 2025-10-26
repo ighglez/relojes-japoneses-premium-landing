@@ -25,7 +25,7 @@ const watches = [
     name: "Seiko 5 Sports",
     reference: "SRPD51K1",
     description: "Inspirado en el diseño vintage. Movimiento automático con reserva de marcha de 41h.",
-    image: "https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=600&q=80",
+    image: "https://res.cloudinary.com/djg9xipqe/image/upload/v1761506078/SSK001K1_ofw6mq.jpg",
   },
 ];
 
