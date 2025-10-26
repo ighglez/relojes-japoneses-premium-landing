@@ -8,21 +8,21 @@ import InquiryModal from "./InquiryModal";
 const watches = [
   {
     id: 1,
-    name: "Seiko Presage Cocktail Time",
+    name: "Seiko Prospex Speedtimer",
     reference: "SCC911P1",
     description: "Esfera azul profundo inspirada en el cóctel Blue Moon. Movimiento automático 4R35.",
     image: "https://res.cloudinary.com/djg9xipqe/image/upload/v1761217241/SSC911P1_th2gtl.jpg",
   },
   {
     id: 2,
-    name: "Seiko Prospex Diver",
+    name: "Seiko 5 Sports GMT",
     reference: "SSK035K1",
     description: "Reinterpretación moderna del icónico 62MAS. Resistencia al agua 200m.",
     image: "https://res.cloudinary.com/djg9xipqe/image/upload/v1761506066/SSK035K1_ppe4kb.jpg",
   },
   {
     id: 3,
-    name: "Seiko 5 Sports",
+    name: "Seiko 5 Sports GMT",
     reference: "SSK001K1",
     description: "Inspirado en el diseño vintage. Movimiento automático con reserva de marcha de 41h.",
     image: "https://res.cloudinary.com/djg9xipqe/image/upload/v1761506078/SSK001K1_ofw6mq.jpg",
