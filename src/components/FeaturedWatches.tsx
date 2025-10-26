@@ -9,7 +9,7 @@ const watches = [
   {
     id: 1,
     name: "Seiko Prospex Speedtimer",
-    reference: "SCC911P1",
+    reference: "SSC911P1",
     description: "Esfera azul profundo inspirada en el cóctel Blue Moon. Movimiento automático 4R35.",
     image: "https://res.cloudinary.com/djg9xipqe/image/upload/v1761217241/SSC911P1_th2gtl.jpg",
   },
