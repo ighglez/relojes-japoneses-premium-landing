@@ -18,7 +18,7 @@ const watches = [
     name: "Seiko Prospex Diver",
     reference: "SPB143J1",
     description: "Reinterpretación moderna del icónico 62MAS. Resistencia al agua 200m.",
-    image: "https://res.cloudinary.com/djg9xipqe/image/upload/v1761217242/SSK035K1_gfp67e.jpg",
+    image: "https://res.cloudinary.com/djg9xipqe/image/upload/v1761506066/SSK035K1_ppe4kb.jpg",
   },
   {
     id: 3,
