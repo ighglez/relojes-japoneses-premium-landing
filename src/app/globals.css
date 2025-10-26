@@ -1,0 +1,93 @@
+/* Updated: 2025-10-26T12:13:23.822Z */
+/* Updated: 2025-10-26T11:55:32.090Z */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --font-body: 'Inter', sans-serif;
+  --font-heading: 'Archivo', sans-serif;
+  
+  --color-ivory: #F9F9F7;
+  --color-pearl: #EAEAEA;
+  --color-champagne: #C6A664;
+  --color-graphite: #121212;
+  
+  --color-background: var(--ivory);
+  --color-foreground: var(--graphite);
+  --color-primary: var(--champagne);
+  --color-primary-foreground: var(--ivory);
+  --color-secondary: var(--pearl);
+  --color-secondary-foreground: var(--graphite);
+  --color-muted: var(--pearl);
+  --color-muted-foreground: #666666;
+  --color-accent: var(--champagne);
+  --color-accent-foreground: var(--ivory);
+  --color-border: #D4D4D4;
+  --color-input: #D4D4D4;
+  --color-ring: var(--champagne);
+  
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.875rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  
+  body {
+    @apply bg-ivory text-graphite;
+    font-family: var(--font-body);
+    line-height: 1.6;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    font-weight: 500;
+    line-height: 1.2;
+  }
+  
+  .container-text {
+    max-width: 950px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid var(--color-champagne);
+    outline-offset: 2px;
+  }
+  
+  .reflection-hover {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .reflection-hover::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 500ms ease;
+  }
+  
+  .reflection-hover:hover::before {
+    left: 100%;
+  }
+}
+
+nextjs-portal {
+  display: none !important;
+}
