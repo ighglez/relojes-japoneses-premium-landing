@@ -113,5 +113,3 @@
         "typescript": "^5"
     }
 }
-
-fix: downgrade Next.js to 15.2.2 to fix deploy error
