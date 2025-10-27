@@ -3,9 +3,7 @@ import { db } from "@/db";
 import { reviews } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 
-// Asegura que este handler se ejecute en Node.js (no en Edge)
 export const runtime = "nodejs";
-// Evita prerender y caching del handler en build
 export const dynamic = "force-dynamic";
 
 export async function GET() {
@@ -19,8 +17,6 @@ export async function GET() {
     return NextResponse.json({ reviews: allReviews }, { status: 200 });
   } catch (error) {
     console.error("Error fetching reviews:", error);
-    // Si prefieres ver el estado vacío en el front en vez de error rojo, descomenta la línea siguiente y cambia el status a 200.
-    // return NextResponse.json({ reviews: [] }, { status: 200 });
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -41,7 +37,7 @@ export async function POST(request: NextRequest) {
       name: nombre,
       city: ciudad,
       text: texto,
-      approved: true, // déjalo en false si vas a moderar; pon true temporalmente si quieres verlas de inmediato
+      approved: true, // publicadas directamente
       createdAt: new Date().toISOString(),
     });
 
