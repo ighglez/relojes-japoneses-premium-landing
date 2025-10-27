@@ -1,7 +1,7 @@
 {
-  "name": "IWatches - Relojes Automáticos Japoneses",
-  "short_name": "IWatches",
-  "description": "Distribuidor independiente especializado en relojes automáticos japoneses",
+  "name": "IWatchWorks - Relojes Automáticos",
+  "short_name": "IWatchWorks",
+  "description": "Distribuidor independiente especializado en relojes automáticos",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F9F9F7",
