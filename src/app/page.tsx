@@ -16,9 +16,9 @@ export default function Home() {
       <ProductSchema />
       <BreadcrumbSchema 
         items={[
-          { name: "Inicio", url: "https://iwatches.vercel.app" },
-          { name: "Catálogo", url: "https://iwatches.vercel.app/#catalogo" },
-          { name: "Confianza", url: "https://iwatches.vercel.app/#confianza" },
+          { name: "Inicio", url: "https://iwatchworks.com" },
+          { name: "Catálogo", url: "https://iwatchworks.com/#catalogo" },
+          { name: "Confianza", url: "https://iwatchworks.com/#confianza" },
         ]}
       />
       <Navigation />

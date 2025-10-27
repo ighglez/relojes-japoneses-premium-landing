@@ -5,9 +5,9 @@ export default function OrganizationSchema() {
     "name": "IWatches",
     "alternateName": "IWatches España",
     "description": "Distribuidor independiente especializado en relojes automáticos japoneses Seiko. Autenticidad garantizada, envío asegurado, factura oficial.",
-    "url": "https://iwatches.vercel.app",
-    "logo": "https://iwatches.vercel.app/logo.png",
-    "image": "https://iwatches.vercel.app/og-image.jpg",
+    "url": "https://iwatchworks.com",
+    "logo": "https://iwatchworks.com/logo.png",
+    "image": "https://iwatchworks.com/og-image.jpg",
     "sameAs": [],
     "contactPoint": {
       "@type": "ContactPoint",
