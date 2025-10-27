@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
-const CATALOG_URL = "https://dl.dropboxusercontent.com/s/fi/mpao2eg23pr48nnz6dp1k/CAT-LOGO-25-26.pdf?rlkey=yajcjmetrxy3e7gj6fr7sk1eo&e=1&st=wxgk60h7&dl=0";
+const CATALOG_URL = "https://dl.dropboxusercontent.com/s/fi/xy4o2g7bye5i8wvdxne1f/CAT-LOGO-25-26.pdf?rlkey=y3cts9ffpefkag2b9w0ttms36&st=wqho6i9v&dl=0;
 
 export default function CatalogDownload() {
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -34,7 +34,7 @@ export default function CatalogDownload() {
     // Trigger download
     const link = document.createElement("a");
     link.href = CATALOG_URL;
-    link.download = "IWatches_Catalogo_2025.pdf";
+    link.download = "IWatchWorks_Catalogo_2025.pdf";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
