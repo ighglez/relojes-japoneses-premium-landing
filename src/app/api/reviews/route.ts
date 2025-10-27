@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       name: nombre,
       city: ciudad,
       text: texto,
-      approved: false, // déjalo en false si vas a moderar; pon true temporalmente si quieres verlas de inmediato
+      approved: true, // déjalo en false si vas a moderar; pon true temporalmente si quieres verlas de inmediato
       createdAt: new Date().toISOString(),
     });
 
