@@ -7,7 +7,7 @@ import { Toaster } from "sonner";
 import OrganizationSchema from "@/components/OrganizationSchema";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXTAUTH_URL || "https://iwatches.vercel.app"),
+  metadataBase: new URL(process.env.NEXTAUTH_URL || "https://iwatchworks.com"),
   title: {
     default: "IWatches - Relojes Automáticos Japoneses | Distribuidor Independiente Seiko",
     template: "%s | IWatches"
@@ -35,6 +35,15 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
+  icons: {
+    icon: [
+      { url: '/favicon-96x96.png', sizes: '96x96', type: 'image/png' }
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }
+    ],
+  },
+  manifest: '/site.webmanifest',
   openGraph: {
     type: "website",
     locale: "es_ES",
@@ -85,7 +94,7 @@ export default function RootLayout({
     <html lang="es">
       <head>
         <OrganizationSchema />
-        <link rel="canonical" href={process.env.NEXTAUTH_URL || "https://iwatches.vercel.app"} />
+        <link rel="canonical" href={process.env.NEXTAUTH_URL || "https://iwatchworks.com"} />
       </head>
       <body className="antialiased">
         <ErrorReporter />
