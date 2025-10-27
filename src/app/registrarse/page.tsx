@@ -2,35 +2,47 @@
 
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { Eye, EyeOff, CheckCircle2, XCircle } from "lucide-react";
 
 type ErrorTypes = Partial<Record<keyof typeof authClient.$ERROR_CODES, string>>;
 const errorCodes = {
   USER_ALREADY_EXISTS: "Este email ya está registrado",
+  INVALID_EMAIL: "Email inválido",
+  WEAK_PASSWORD: "La contraseña es demasiado débil",
 } satisfies ErrorTypes;
 
 const getErrorMessage = (code: string) => {
   if (code in errorCodes) {
     return errorCodes[code as keyof typeof errorCodes];
   }
-  return "Error al registrarse";
+  return "Error al registrarse. Por favor, intenta de nuevo.";
 };
 
 export default function SignUpPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
     confirmPassword: "",
   });
+
+  // Password validation states
+  const passwordValidations = {
+    length: formData.password.length >= 8,
+    match: formData.password === formData.confirmPassword && formData.confirmPassword !== "",
+  };
 
   const handleGoogleSignUp = async () => {
     setGoogleLoading(true);
@@ -41,11 +53,11 @@ export default function SignUpPage() {
       });
 
       if (error?.code) {
-        toast.error("Error al registrarse con Google");
+        toast.error("Error al registrarse con Google. Por favor, intenta de nuevo.");
         setGoogleLoading(false);
       }
     } catch (error) {
-      toast.error("Error al registrarse con Google");
+      toast.error("Error al conectar con Google. Verifica tu conexión.");
       setGoogleLoading(false);
     }
   };
@@ -53,8 +65,14 @@ export default function SignUpPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (formData.password !== formData.confirmPassword) {
-      toast.error("Las contraseñas no coinciden");
+    // Validations
+    if (!formData.name.trim()) {
+      toast.error("Por favor, ingresa tu nombre completo");
+      return;
+    }
+
+    if (!formData.email.trim()) {
+      toast.error("Por favor, ingresa tu email");
       return;
     }
 
@@ -63,25 +81,45 @@ export default function SignUpPage() {
       return;
     }
 
+    if (formData.password !== formData.confirmPassword) {
+      toast.error("Las contraseñas no coinciden");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const { error } = await authClient.signUp.email({
-        email: formData.email,
-        name: formData.name,
+      const { data, error } = await authClient.signUp.email({
+        email: formData.email.trim(),
+        name: formData.name.trim(),
         password: formData.password,
       });
 
       if (error?.code) {
         toast.error(getErrorMessage(error.code));
+        setLoading(false);
         return;
       }
 
-      toast.success("¡Cuenta creada exitosamente!");
-      router.push("/iniciar-sesion?registered=true");
+      // Success
+      toast.success("¡Cuenta creada exitosamente! Iniciando sesión...");
+      
+      // Auto login after successful registration
+      const { error: signInError } = await authClient.signIn.email({
+        email: formData.email.trim(),
+        password: formData.password,
+        rememberMe: true,
+      });
+
+      if (signInError?.code) {
+        router.push("/iniciar-sesion?registered=true");
+        return;
+      }
+
+      // Redirect to account page
+      router.push("/mi-cuenta");
     } catch (error) {
-      toast.error("Error al registrarse");
-    } finally {
+      toast.error("Error al crear la cuenta. Por favor, intenta de nuevo.");
       setLoading(false);
     }
   };
@@ -90,7 +128,7 @@ export default function SignUpPage() {
     <div className="min-h-screen bg-ivory flex flex-col">
       <nav className="border-b border-pearl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Link href="/" className="font-heading text-xl font-semibold text-graphite">
+          <Link href="/" className="font-heading text-xl font-semibold text-graphite hover:text-champagne transition-colors">
             IWatches
           </Link>
         </div>
@@ -103,18 +141,20 @@ export default function SignUpPage() {
           transition={{ duration: 0.5 }}
           className="w-full max-w-md"
         >
-          <div className="bg-white rounded-lg shadow-sm p-8">
-            <h1 className="font-heading text-3xl font-medium text-graphite mb-2">
-              Crear cuenta
-            </h1>
-            <p className="text-graphite/70 mb-8">
-              Regístrate para acceder al sistema de referidos
-            </p>
+          <div className="bg-white rounded-xl shadow-lg p-8">
+            <div className="text-center mb-8">
+              <h1 className="font-heading text-3xl font-medium text-graphite mb-2">
+                Crear cuenta
+              </h1>
+              <p className="text-graphite/70">
+                Únete y accede al sistema de referidos
+              </p>
+            </div>
 
             <button
               onClick={handleGoogleSignUp}
               disabled={googleLoading || loading}
-              className="w-full px-6 py-3 bg-white text-graphite font-medium rounded-lg border-2 border-pearl hover:bg-pearl/30 transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-3 mb-6"
+              className="w-full px-6 py-3 bg-white text-graphite font-medium rounded-lg border-2 border-pearl hover:bg-pearl/30 hover:border-champagne transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 mb-6"
               aria-label="Registrarse con Google"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -143,93 +183,151 @@ export default function SignUpPage() {
                 <div className="w-full border-t border-pearl"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-graphite/60">o continúa con email</span>
+                <span className="px-3 bg-white text-graphite/60">o continúa con email</span>
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <Label htmlFor="name" className="text-graphite">
+                <Label htmlFor="name" className="text-graphite font-medium">
                   Nombre completo *
                 </Label>
                 <Input
                   id="name"
                   type="text"
                   required
+                  placeholder="Juan Pérez"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="mt-1"
+                  className="mt-1.5 h-11"
                   aria-required="true"
+                  disabled={loading || googleLoading}
                 />
               </div>
 
               <div>
-                <Label htmlFor="email" className="text-graphite">
+                <Label htmlFor="email" className="text-graphite font-medium">
                   Email *
                 </Label>
                 <Input
                   id="email"
                   type="email"
                   required
+                  placeholder="tu@email.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="mt-1"
+                  className="mt-1.5 h-11"
                   aria-required="true"
+                  disabled={loading || googleLoading}
                 />
               </div>
 
               <div>
-                <Label htmlFor="password" className="text-graphite">
+                <Label htmlFor="password" className="text-graphite font-medium">
                   Contraseña *
                 </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  required
-                  minLength={8}
-                  autoComplete="off"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="mt-1"
-                  aria-required="true"
-                />
-                <p className="text-xs text-graphite/60 mt-1">
-                  Mínimo 8 caracteres
-                </p>
+                <div className="relative mt-1.5">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    placeholder="Mínimo 8 caracteres"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="pr-10 h-11"
+                    aria-required="true"
+                    disabled={loading || googleLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-graphite/50 hover:text-graphite transition-colors"
+                    aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {formData.password && (
+                  <div className="mt-2 flex items-center gap-2 text-xs">
+                    {passwordValidations.length ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5 text-red-500" />
+                    )}
+                    <span className={passwordValidations.length ? "text-green-700" : "text-red-600"}>
+                      Mínimo 8 caracteres
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div>
-                <Label htmlFor="confirmPassword" className="text-graphite">
+                <Label htmlFor="confirmPassword" className="text-graphite font-medium">
                   Confirmar contraseña *
                 </Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  required
-                  autoComplete="off"
-                  value={formData.confirmPassword}
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  className="mt-1"
-                  aria-required="true"
-                />
+                <div className="relative mt-1.5">
+                  <Input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    required
+                    autoComplete="new-password"
+                    placeholder="Repite tu contraseña"
+                    value={formData.confirmPassword}
+                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    className="pr-10 h-11"
+                    aria-required="true"
+                    disabled={loading || googleLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-graphite/50 hover:text-graphite transition-colors"
+                    aria-label={showConfirmPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {formData.confirmPassword && (
+                  <div className="mt-2 flex items-center gap-2 text-xs">
+                    {passwordValidations.match ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5 text-red-500" />
+                    )}
+                    <span className={passwordValidations.match ? "text-green-700" : "text-red-600"}>
+                      Las contraseñas coinciden
+                    </span>
+                  </div>
+                )}
               </div>
 
               <button
                 type="submit"
-                disabled={loading || googleLoading}
-                className="w-full px-6 py-3 bg-champagne text-ivory font-medium rounded-lg hover:bg-opacity-90 transition-all duration-300 disabled:opacity-50"
+                disabled={loading || googleLoading || !passwordValidations.length || !passwordValidations.match}
+                className="w-full px-6 py-3 bg-champagne text-ivory font-medium rounded-lg hover:bg-champagne/90 hover:shadow-md transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed h-11"
                 aria-label="Crear cuenta"
               >
-                {loading ? "Creando cuenta..." : "Crear cuenta"}
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-ivory"></div>
+                    Creando cuenta...
+                  </span>
+                ) : (
+                  "Crear cuenta"
+                )}
               </button>
             </form>
 
-            <p className="mt-6 text-center text-sm text-graphite/70">
-              ¿Ya tienes cuenta?{" "}
-              <Link href="/iniciar-sesion" className="text-champagne hover:underline font-medium">
-                Inicia sesión aquí
-              </Link>
-            </p>
+            <div className="mt-6 pt-6 border-t border-pearl">
+              <p className="text-center text-sm text-graphite/70">
+                ¿Ya tienes cuenta?{" "}
+                <Link href="/iniciar-sesion" className="text-champagne hover:underline font-medium transition-colors">
+                  Inicia sesión aquí
+                </Link>
+              </p>
+            </div>
           </div>
         </motion.div>
       </div>

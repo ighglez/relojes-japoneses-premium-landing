@@ -1,23 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { authClient } from "@/lib/auth-client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { Eye, EyeOff, AlertCircle } from "lucide-react";
 
 export default function SignInPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
     rememberMe: true,
   });
+
+  useEffect(() => {
+    // Show success message if coming from registration
+    if (searchParams.get("registered") === "true") {
+      toast.success("¡Cuenta creada! Ahora puedes iniciar sesión.");
+    }
+  }, [searchParams]);
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
@@ -28,37 +38,47 @@ export default function SignInPage() {
       });
 
       if (error?.code) {
-        toast.error("Error al iniciar sesión con Google");
+        toast.error("Error al iniciar sesión con Google. Por favor, intenta de nuevo.");
         setGoogleLoading(false);
       }
     } catch (error) {
-      toast.error("Error al iniciar sesión con Google");
+      toast.error("Error al conectar con Google. Verifica tu conexión.");
       setGoogleLoading(false);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.email.trim()) {
+      toast.error("Por favor, ingresa tu email");
+      return;
+    }
+
+    if (!formData.password) {
+      toast.error("Por favor, ingresa tu contraseña");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const { error } = await authClient.signIn.email({
-        email: formData.email,
+      const { data, error } = await authClient.signIn.email({
+        email: formData.email.trim(),
         password: formData.password,
         rememberMe: formData.rememberMe,
-        callbackURL: "/mi-cuenta",
       });
 
       if (error?.code) {
-        toast.error("Email o contraseña incorrectos. Por favor, asegúrate de haber registrado una cuenta e intenta de nuevo.");
+        toast.error("Email o contraseña incorrectos. Verifica tus datos e intenta de nuevo.");
+        setLoading(false);
         return;
       }
 
       toast.success("¡Bienvenido de nuevo!");
       router.push("/mi-cuenta");
     } catch (error) {
-      toast.error("Error al iniciar sesión");
-    } finally {
+      toast.error("Error al iniciar sesión. Por favor, intenta de nuevo.");
       setLoading(false);
     }
   };
@@ -67,7 +87,7 @@ export default function SignInPage() {
     <div className="min-h-screen bg-ivory flex flex-col">
       <nav className="border-b border-pearl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Link href="/" className="font-heading text-xl font-semibold text-graphite">
+          <Link href="/" className="font-heading text-xl font-semibold text-graphite hover:text-champagne transition-colors">
             IWatches
           </Link>
         </div>
@@ -80,18 +100,20 @@ export default function SignInPage() {
           transition={{ duration: 0.5 }}
           className="w-full max-w-md"
         >
-          <div className="bg-white rounded-lg shadow-sm p-8">
-            <h1 className="font-heading text-3xl font-medium text-graphite mb-2">
-              Iniciar sesión
-            </h1>
-            <p className="text-graphite/70 mb-8">
-              Accede a tu cuenta y gestiona tus referidos
-            </p>
+          <div className="bg-white rounded-xl shadow-lg p-8">
+            <div className="text-center mb-8">
+              <h1 className="font-heading text-3xl font-medium text-graphite mb-2">
+                Iniciar sesión
+              </h1>
+              <p className="text-graphite/70">
+                Accede a tu cuenta y gestiona tus referidos
+              </p>
+            </div>
 
             <button
               onClick={handleGoogleSignIn}
               disabled={googleLoading || loading}
-              className="w-full px-6 py-3 bg-white text-graphite font-medium rounded-lg border-2 border-pearl hover:bg-pearl/30 transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-3 mb-6"
+              className="w-full px-6 py-3 bg-white text-graphite font-medium rounded-lg border-2 border-pearl hover:bg-pearl/30 hover:border-champagne transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 mb-6"
               aria-label="Iniciar sesión con Google"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -120,71 +142,106 @@ export default function SignInPage() {
                 <div className="w-full border-t border-pearl"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-graphite/60">o continúa con email</span>
+                <span className="px-3 bg-white text-graphite/60">o continúa con email</span>
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <Label htmlFor="email" className="text-graphite">
+                <Label htmlFor="email" className="text-graphite font-medium">
                   Email *
                 </Label>
                 <Input
                   id="email"
                   type="email"
                   required
+                  placeholder="tu@email.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="mt-1"
+                  className="mt-1.5 h-11"
                   aria-required="true"
+                  disabled={loading || googleLoading}
                 />
               </div>
 
               <div>
-                <Label htmlFor="password" className="text-graphite">
+                <Label htmlFor="password" className="text-graphite font-medium">
                   Contraseña *
                 </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  required
-                  autoComplete="off"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="mt-1"
-                  aria-required="true"
-                />
+                <div className="relative mt-1.5">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    autoComplete="current-password"
+                    placeholder="Tu contraseña"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="pr-10 h-11"
+                    aria-required="true"
+                    disabled={loading || googleLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-graphite/50 hover:text-graphite transition-colors"
+                    aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center">
-                <input
-                  id="remember"
-                  type="checkbox"
-                  checked={formData.rememberMe}
-                  onChange={(e) => setFormData({ ...formData, rememberMe: e.target.checked })}
-                  className="h-4 w-4 text-champagne focus:ring-champagne border-gray-300 rounded"
-                />
-                <label htmlFor="remember" className="ml-2 text-sm text-graphite">
-                  Recuérdame
-                </label>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <input
+                    id="remember"
+                    type="checkbox"
+                    checked={formData.rememberMe}
+                    onChange={(e) => setFormData({ ...formData, rememberMe: e.target.checked })}
+                    className="h-4 w-4 text-champagne focus:ring-champagne border-gray-300 rounded cursor-pointer"
+                  />
+                  <label htmlFor="remember" className="ml-2 text-sm text-graphite cursor-pointer">
+                    Recuérdame
+                  </label>
+                </div>
               </div>
 
               <button
                 type="submit"
                 disabled={loading || googleLoading}
-                className="w-full px-6 py-3 bg-champagne text-ivory font-medium rounded-lg hover:bg-opacity-90 transition-all duration-300 disabled:opacity-50"
+                className="w-full px-6 py-3 bg-champagne text-ivory font-medium rounded-lg hover:bg-champagne/90 hover:shadow-md transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed h-11"
                 aria-label="Iniciar sesión"
               >
-                {loading ? "Iniciando sesión..." : "Iniciar sesión"}
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-ivory"></div>
+                    Iniciando sesión...
+                  </span>
+                ) : (
+                  "Iniciar sesión"
+                )}
               </button>
             </form>
 
-            <p className="mt-6 text-center text-sm text-graphite/70">
-              ¿No tienes cuenta?{" "}
-              <Link href="/registrarse" className="text-champagne hover:underline font-medium">
-                Regístrate aquí
-              </Link>
-            </p>
+            <div className="mt-6 bg-champagne/5 border border-champagne/20 rounded-lg p-4">
+              <div className="flex gap-3">
+                <AlertCircle className="h-5 w-5 text-champagne flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-graphite/70">
+                  <p className="font-medium text-graphite mb-1">¿No tienes cuenta aún?</p>
+                  <p>Crea una cuenta para acceder al sistema de referidos y desbloquear el catálogo premium.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 pt-6 border-t border-pearl">
+              <p className="text-center text-sm text-graphite/70">
+                ¿No tienes cuenta?{" "}
+                <Link href="/registrarse" className="text-champagne hover:underline font-medium transition-colors">
+                  Regístrate aquí
+                </Link>
+              </p>
+            </div>
           </div>
         </motion.div>
       </div>
