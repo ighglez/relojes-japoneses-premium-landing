@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       name: nombre,
       city: ciudad,
       text: texto,
-      approved: false,
+      approved: true,
       createdAt: new Date().toISOString(),
     });
 
