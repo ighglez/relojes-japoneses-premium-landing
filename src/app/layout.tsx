@@ -9,8 +9,8 @@ import OrganizationSchema from "@/components/OrganizationSchema";
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXTAUTH_URL || "https://iwatchworks.com"),
   title: {
-    default: "IWatches - Relojes Automáticos Japoneses | Distribuidor Independiente Seiko",
-    template: "%s | IWatches"
+    default: "IWatches - Relojes Automáticos | Distribuidor Independiente",
+    template: "%s | IWatchWorks"
   },
   description: "Distribuidor independiente especializado en relojes automáticos japoneses Seiko. Autenticidad garantizada, envío asegurado, factura oficial. Catálogo 2025 con modelos exclusivos.",
   keywords: [
@@ -27,9 +27,9 @@ export const metadata: Metadata = {
     "relojería japonesa",
     "distribuidor independiente relojes"
   ],
-  authors: [{ name: "IWatches" }],
-  creator: "IWatches",
-  publisher: "IWatches",
+  authors: [{ name: "IWatchWorks" }],
+  creator: "IWatchWorks",
+  publisher: "IWatchWorks",
   formatDetection: {
     email: false,
     address: false,
@@ -49,22 +49,22 @@ export const metadata: Metadata = {
     type: "website",
     locale: "es_ES",
     url: "/",
-    siteName: "IWatches",
-    title: "IWatches - Relojes Automáticos Japoneses | Distribuidor Independiente Seiko",
-    description: "Distribuidor independiente especializado en relojes automáticos japoneses Seiko. Autenticidad garantizada, envío asegurado. Catálogo 2025.",
+    siteName: "IWatchWorks",
+    title: "IWatchWorks - Relojes Automáticos | Distribuidor Independiente",
+    description: "Distribuidor independiente especializado en relojes automáticos. Autenticidad garantizada, envío asegurado. Catálogo 2025.",
     images: [
       {
         url: "/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "IWatches - Relojes Automáticos Japoneses",
+        alt: "IWatchWorks - Relojes Automáticos",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "IWatches - Relojes Automáticos Japoneses",
-    description: "Distribuidor independiente especializado en relojes automáticos japoneses Seiko. Autenticidad garantizada.",
+    title: "IWatchWorks - Relojes Automáticos",
+    description: "Distribuidor independiente especializado en relojes automáticos. Autenticidad garantizada.",
     images: ["/og-image.jpg"],
   },
   robots: {
