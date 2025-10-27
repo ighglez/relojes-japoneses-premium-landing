@@ -9,7 +9,7 @@ import OrganizationSchema from "@/components/OrganizationSchema";
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXTAUTH_URL || "https://iwatchworks.com"),
   title: {
-    default: "IWatches - Relojes Automáticos | Distribuidor Independiente",
+    default: "IWatchWorks - Relojes Automáticos | Distribuidor Independiente",
     template: "%s | IWatchWorks"
   },
   description: "Distribuidor independiente especializado en relojes automáticos japoneses Seiko. Autenticidad garantizada, envío asegurado, factura oficial. Catálogo 2025 con modelos exclusivos.",
