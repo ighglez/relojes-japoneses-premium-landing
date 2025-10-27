@@ -60,7 +60,7 @@ GOOGLE_CLIENT_SECRET=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
 
 #### **📨 Resend Email (Opcional)**
 ```
-RESEND_API_KEY=tu_resend_api_key_aqui
+RESEND_API_KEY=re_QwZqiBC4_MEVgz1Pfz1nqN5Z3pzNVpnsk
 RESEND_FROM=IWatches <onboarding@resend.dev>
 ```
 *Si no tienes Resend configurado, puedes omitir estas variables. Los emails simplemente no se enviarán pero la app funcionará.*
