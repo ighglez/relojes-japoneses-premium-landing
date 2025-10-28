@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     // 4) Envío de correo (solo si hay credenciales)
     const RESEND_KEY = process.env.RESEND_API_KEY;
-    const FROM = process.env.RESEND_FROM || "IWatches <onboarding@resend.dev>";
+    const FROM = process.env.RESEND_FROM || "IWatchWorks <onboarding@resend.dev>";
     const TO = process.env.RESEND_FROM || "onboarding@resend.dev";
 
     if (RESEND_KEY) {

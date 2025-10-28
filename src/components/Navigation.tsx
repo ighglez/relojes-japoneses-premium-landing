@@ -25,7 +25,7 @@ export default function Navigation() {
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2">
             <span className="font-heading text-xl font-semibold text-graphite">
-              IWatches
+              IWatchWorks
             </span>
           </Link>
 

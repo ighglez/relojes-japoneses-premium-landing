@@ -131,7 +131,7 @@ export default function MyAccountPage() {
       <nav className="border-b border-pearl/50 bg-white/90 backdrop-blur-md sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <Link href="/" className="font-heading text-xl font-semibold text-graphite hover:text-champagne transition-colors">
-            IWatches
+            IWatchWorks
           </Link>
           <div className="flex items-center gap-3">
             <Link 

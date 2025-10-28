@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
 
     // Email de bienvenida (opcional para catalog_download mostrar código)
     const RESEND_KEY = process.env.RESEND_API_KEY;
-    const FROM = process.env.RESEND_FROM || "IWatches <onboarding@resend.dev>";
+    const FROM = process.env.RESEND_FROM || "IWatchWorks <onboarding@resend.dev>";
     // Tip: puedes usar tu dominio verificado como FROM para mejorar entregabilidad
 
     if (RESEND_KEY) {
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
         const discountCode = showDiscount ? "WELCOME5" : undefined;
 
         const textBody = [
-          "¡Bienvenido a IWatches!",
+          "¡Bienvenido a IWatchWorks!",
           "Gracias por suscribirte.",
           showDiscount ? "Tu código de descuento del 5%: WELCOME5" : "",
           "",
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
 
         const htmlBody = `
           <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; line-height:1.6;">
-            <h1 style="color:#C6A664; margin: 0 0 16px;">¡Bienvenido a IWatches!</h1>
+            <h1 style="color:#C6A664; margin: 0 0 16px;">¡Bienvenido a IWatchWorks!</h1>
             <p>Gracias por suscribirte${source === "footer" ? " desde el pie de página" : ""}. Seleccionamos piezas por su equilibrio entre diseño, fiabilidad y legado relojero.</p>
             ${
               showDiscount
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
         await resend.emails.send({
           from: FROM,            // remitente verificado
           to: [email],           // al suscriptor
-          subject: "Bienvenido a IWatches",
+          subject: "Bienvenido a IWatchWorks",
           text: textBody,
           html: htmlBody,
         });

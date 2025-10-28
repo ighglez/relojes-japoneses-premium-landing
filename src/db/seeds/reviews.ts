@@ -2,54 +2,49 @@ import { db } from '@/db';
 import { reviews } from '@/db/schema';
 
 async function main() {
-  const sampleReviews = [
-    {
-      name: 'Mateo Gracia',
-      city: 'Logroño, España',
-      text:
-        'Todo el proceso fue impecable. Ignacio me explicó cada detalle del reloj y del pedido, y el Seiko llegó exactamente como se describía: nuevo, con garantía y un empaquetado muy cuidado. El tono dorado del SSK021K1 en persona es espectacular. Sin duda repetiré.',
-      approved: true,
-      createdAt: '2025-09-10T10:00:00.000Z',
-    },
-    {
-      name: 'Alberto Pérez',
-      city: 'Valladolid, España',
-      text:
-        'Tenía mis dudas al principio, pero la comunicación fue constante y profesional. El reloj llegó en el plazo indicado y con su factura. Se nota la calidad con la que trabajan.',
-      approved: true,
-      createdAt: '2025-09-18T12:00:00.000Z',
-    },
-    {
-      name: 'Oscar Soto',
-      city: 'Valencia, España',
-      text:
-        'Servicio impecable. Reloj original, con su caja, papeles y envío rápido. La comunicación fue cercana y transparente en todo momento y el trato recibido marca la diferencia.',
-      approved: true,
-      createdAt: '2025-10-02T09:30:00.000Z',
-    },
-    {
-      name: 'Carlos González',
-      city: 'Cádiz, España',
-      text:
-        'Es el segundo Seiko que compro con ellos y todo perfecto. El SSK005K1 con esfera naranja es aún más impresionante en vivo. Ignacio me mandó fotos antes del envío y todo llegó en perfecto estado; se nota que se preocupan por el cliente.',
-      approved: true,
-      createdAt: '2025-10-12T14:15:00.000Z',
-    },
-    {
-      name: 'Pablo Velasco',
-      city: 'León, España',
-      text:
-        'Buscaba el modelo Panda desde hacía meses y aquí lo encontré nuevo, a un precio competitivo y con un trato excelente. Me enviaron la factura, el número de seguimiento y fotos antes del envío. Experiencia de 10, muy profesional.',
-      approved: true,
-      createdAt: '2025-10-25T16:45:00.000Z',
-    },
-  ];
+    const sampleReviews = [
+        {
+            name: 'Carlos González',
+            city: 'Madrid, España',
+            text: 'Excelente experiencia comprando mi Seiko Presage. La comunicación fue perfecta durante todo el proceso, el reloj llegó en perfectas condiciones con toda su documentación original. El empaquetado muy cuidado y la entrega más rápida de lo esperado. Totalmente recomendable para cualquiera que busque un reloj automático de calidad.',
+            approved: true,
+            createdAt: new Date('2024-09-15T10:00:00.000Z').toISOString(),
+        },
+        {
+            name: 'María López',
+            city: 'Barcelona, España',
+            text: 'Compré un Seiko 5 Sports y estoy encantada. El vendedor respondió todas mis dudas con paciencia y profesionalidad. El reloj llegó en una semana, perfectamente embalado con caja original y garantía internacional. La autenticidad del producto es indudable, se nota la calidad japonesa en cada detalle.',
+            approved: true,
+            createdAt: new Date('2024-10-22T14:30:00.000Z').toISOString(),
+        },
+        {
+            name: 'Javier Martínez',
+            city: 'Valencia, España',
+            text: 'Mi segundo Seiko automático comprado aquí, esta vez un Prospex Diver. Servicio impecable como siempre, el seguimiento del envío fue transparente y el packaging de primera calidad. El reloj llegó exactamente como se describía, con todos los papeles y enlaces originales. Sin duda volveré para mi próxima compra.',
+            approved: true,
+            createdAt: new Date('2024-11-08T16:45:00.000Z').toISOString(),
+        },
+        {
+            name: 'Ana Ruiz',
+            city: 'Sevilla, España',
+            text: 'Fantástica experiencia adquiriendo un Seiko Cocktail Time para mi marido. La atención al cliente fue excepcional, me asesoraron perfectamente sobre el modelo. La entrega fue rapidísima, solo tres días, y el estado del reloj impecable. Viene con garantía oficial y toda la documentación en regla.',
+            approved: true,
+            createdAt: new Date('2024-12-01T09:20:00.000Z').toISOString(),
+        },
+        {
+            name: 'Pablo Navarro',
+            city: 'Bilbao, España',
+            text: 'Compré un Seiko Alpinist y superó todas mis expectativas. El proceso de compra fue muy sencillo, el vendedor muy atento y profesional en todo momento. El reloj llegó protegido con triple embalaje, en su caja original con manuales y certificado de autenticidad. Relación calidad-precio insuperable, totalmente satisfecho.',
+            approved: true,
+            createdAt: new Date('2024-12-18T11:15:00.000Z').toISOString(),
+        }
+    ];
 
-  await db.insert(reviews).values(sampleReviews);
-  console.log('✅ Reviews seeder completed successfully');
+    await db.insert(reviews).values(sampleReviews);
+    
+    console.log('✅ Reviews seeder completed successfully');
 }
 
 main().catch((error) => {
-  console.error('❌ Seeder failed:', error);
-  process.exit(1);
+    console.error('❌ Seeder failed:', error);
 });

@@ -16,7 +16,7 @@ export default function ProductSchema() {
       "priceValidUntil": "2026-12-31",
       "seller": {
         "@type": "Organization",
-        "name": "IWatches"
+        "name": "IWatchWorks"
       }
     },
     "aggregateRating": {

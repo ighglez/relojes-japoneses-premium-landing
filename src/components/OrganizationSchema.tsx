@@ -2,8 +2,8 @@ export default function OrganizationSchema() {
   const schema = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "name": "IWatches",
-    "alternateName": "IWatches España",
+    "name": "IWatchWorks",
+    "alternateName": "IWatchWorks España",
     "description": "Distribuidor independiente especializado en relojes automáticos japoneses Seiko. Autenticidad garantizada, envío asegurado, factura oficial.",
     "url": "https://iwatchworks.com",
     "logo": "https://iwatchworks.com/logo.png",

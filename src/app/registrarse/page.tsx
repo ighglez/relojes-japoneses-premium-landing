@@ -113,7 +113,7 @@ function RegisterContent() {
       <nav className="border-b border-pearl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <Link href="/" className="font-heading text-xl font-semibold text-graphite hover:text-champagne transition-colors">
-            IWatches
+            IWatchWorks
           </Link>
         </div>
       </nav>
