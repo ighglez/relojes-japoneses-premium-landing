@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 import { Suspense } from 'react';
 import { useState } from "react";
-import { authClient } from "@/lib/auth-client";
+import { authClient, useSession } from "@/lib/auth-client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +29,7 @@ const getErrorMessage = (code: string) => {
 function RegisterContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { refetch } = useSession();
   const referral = searchParams.get("ref") ?? undefined;
 
   const [loading, setLoading] = useState(false);
@@ -78,7 +79,6 @@ function RegisterContent() {
         email: formData.email.trim(),
         name: formData.name.trim(),
         password: formData.password,
-        // si tu auth soporta metadatos, te dejo el ref listo:
         metadata: referral ? { ref: referral } : undefined,
       });
 
@@ -96,12 +96,18 @@ function RegisterContent() {
       });
 
       if (signInError?.code) {
-        router.push("/iniciar-sesion?registered=true");
+        window.location.href = "/iniciar-sesion?registered=true";
         return;
       }
 
       toast.success("¡Cuenta creada exitosamente!");
-      router.push("/mi-cuenta");
+      
+      // CRÍTICO: Refrescar la sesión y esperar antes de navegar
+      await refetch();
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Forzar recarga completa para asegurar que el estado se actualiza
+      window.location.href = "/mi-cuenta";
     } catch {
       toast.error("Error al crear la cuenta. Por favor, intenta de nuevo.");
       setLoading(false);

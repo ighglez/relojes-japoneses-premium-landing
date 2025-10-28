@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 import { Suspense } from 'react';
 import { useState, useEffect } from "react";
-import { authClient } from "@/lib/auth-client";
+import { authClient, useSession } from "@/lib/auth-client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,7 @@ import { Eye, EyeOff, AlertCircle } from "lucide-react";
 function SignInContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { refetch } = useSession();
 
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -73,9 +74,12 @@ function SignInContent() {
       
       toast.success("¡Bienvenido de nuevo!");
       
-      // Espera un momento para que se guarde el token
-      await new Promise(resolve => setTimeout(resolve, 500));
-      router.push("/mi-cuenta");
+      // CRÍTICO: Refrescar la sesión y esperar antes de navegar
+      await refetch();
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Forzar recarga completa para asegurar que el estado se actualiza
+      window.location.href = "/mi-cuenta";
     } catch (err) {
       console.error("Login error:", err);
       toast.error("Error al iniciar sesión. Por favor, intenta de nuevo.");

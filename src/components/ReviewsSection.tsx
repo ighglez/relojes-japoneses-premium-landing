@@ -36,10 +36,14 @@ export default function ReviewsSection() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch("/api/reviews", { 
+      
+      // CRÍTICO: Añadir timestamp para evitar caché
+      const timestamp = Date.now();
+      const res = await fetch(`/api/reviews?t=${timestamp}`, { 
         cache: "no-store",
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
         }
       });
       
@@ -48,7 +52,7 @@ export default function ReviewsSection() {
       }
       
       const data = await res.json();
-      console.log("Reviews data received:", data);
+      console.log("[ReviewsSection] Reviews received:", data);
       
       if (data && Array.isArray(data.reviews)) {
         setReviews(data.reviews);
@@ -56,11 +60,11 @@ export default function ReviewsSection() {
           setCurrentIndex(0);
         }
       } else {
-        console.error("Formato de datos incorrecto:", data);
+        console.error("[ReviewsSection] Formato incorrecto:", data);
         setReviews([]);
       }
     } catch (e) {
-      console.error("Error fetching reviews:", e);
+      console.error("[ReviewsSection] Error:", e);
       setError("No se pudieron cargar las reseñas");
       setReviews([]);
     } finally {
@@ -70,6 +74,10 @@ export default function ReviewsSection() {
 
   useEffect(() => {
     fetchReviews();
+    
+    // CRÍTICO: Refrescar cada 30 segundos para nuevas reseñas
+    const interval = setInterval(fetchReviews, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -92,7 +100,9 @@ export default function ReviewsSection() {
       toast.success("¡Gracias por tu reseña! Ha sido publicada.");
       setFormData({ nombre: "", ciudad: "", texto: "" });
       setOpen(false);
-      await fetchReviews();
+      
+      // Recargar reseñas inmediatamente
+      setTimeout(() => fetchReviews(), 500);
     } catch {
       toast.error("No se pudo enviar la reseña. Inténtalo de nuevo.");
     } finally {
@@ -198,7 +208,7 @@ export default function ReviewsSection() {
                 Lo que dicen nuestros clientes
               </h2>
               <p className="text-graphite/70 mt-2">
-                Reseñas verificadas de compradores reales
+                Reseñas verificadas de compradores reales • {reviews.length} reseñas
               </p>
             </div>
             <div className="hidden sm:flex items-center gap-2">

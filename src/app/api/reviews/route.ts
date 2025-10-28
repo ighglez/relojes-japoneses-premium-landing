@@ -1,60 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { reviews } from "@/db/schema";
-import { desc } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const revalidate = 0; // CRÍTICO: Sin caché
 
-type AnyRow = {
-  id?: number;
-  name?: string;
-  city?: string;
-  text?: string;
-  testimonial?: string; // por compatibilidad con seeds antiguos
-  approved?: boolean | number | string | null;
-  createdAt?: string | null;
-};
-
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // 1) Trae TODO y filtra en memoria para esquemas antiguos o datos inconsistentes
-    const rows = (await db.select().from(reviews)) as unknown as AnyRow[];
+    // Headers para prevenir caché
+    const headers = {
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'Content-Type': 'application/json',
+    };
 
-    // 2) Normaliza: usa `text` o `testimonial`, coerciona `approved`, asegura `createdAt`
-    const normalized = rows
-      .map((r) => {
-        const approved =
-          r.approved === true ||
-          r.approved === 1 ||
-          r.approved === "1" ||
-          r.approved === "true" ||
-          r.approved === undefined ||
-          r.approved === null; // si no existe el campo, no bloqueamos
-        return {
-          id: r.id ?? 0,
-          name: r.name ?? "",
-          city: r.city ?? "",
-          text: (r.text ?? r.testimonial ?? "").toString(),
-          approved,
-          createdAt: r.createdAt ?? null,
-        };
-      })
-      .filter((r) => r.text.trim().length > 0 && r.approved);
+    const allReviews = await db
+      .select()
+      .from(reviews)
+      .where(eq(reviews.approved, true))
+      .orderBy(desc(reviews.createdAt));
 
-    // 3) Ordena por fecha (si falta, caemos al final)
-    normalized.sort((a, b) => {
-      const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
-      const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
-      return tb - ta;
-    });
+    console.log(`[Reviews API] Found ${allReviews.length} approved reviews`);
 
-    // 4) Devuelve 200 SIEMPRE con array (vacío si no hay)
-    return NextResponse.json({ reviews: normalized }, { status: 200 });
+    return NextResponse.json(
+      { reviews: allReviews, count: allReviews.length }, 
+      { status: 200, headers }
+    );
   } catch (error) {
-    console.error("Error fetching reviews:", error);
-    // fallback sin romper el front
-    return NextResponse.json({ reviews: [] }, { status: 200 });
+    console.error("[Reviews API] Error fetching reviews:", error);
+    return NextResponse.json(
+      { error: "Internal server error", reviews: [], count: 0 }, 
+      { status: 500 }
+    );
   }
 }
 
@@ -70,24 +50,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await db.insert(reviews).values({
+    const newReview = await db.insert(reviews).values({
       name: nombre,
       city: ciudad,
-      text: texto,          // siempre guardamos en `text`
-      approved: true,       // publicadas directamente
+      text: texto,
+      approved: true,
       createdAt: new Date().toISOString(),
-    });
+    }).returning();
+
+    console.log(`[Reviews API] New review created:`, newReview[0]);
 
     return NextResponse.json(
-      { message: "Review submitted successfully" },
+      { message: "Review submitted successfully", review: newReview[0] },
       { status: 201 }
     );
   } catch (error) {
-    console.error("Error submitting review:", error);
-    // no rompas el front si algo falla al crear
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    console.error("[Reviews API] Error submitting review:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
