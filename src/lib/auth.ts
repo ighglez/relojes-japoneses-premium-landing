@@ -4,6 +4,8 @@ import { bearer } from "better-auth/plugins";
 import { NextRequest } from 'next/server';
 import { headers } from "next/headers"
 import { db } from "@/db";
+import { user } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 // Enhanced base URL detection for production and custom domains
 const getBaseURL = () => {
@@ -57,7 +59,11 @@ export const auth = betterAuth({
 		sendResetPassword: async ({ user, url }) => {
 			// Email sending will be implemented when needed
 			console.log(`Password reset for ${user.email}: ${url}`);
-		}
+		},
+		async sendVerificationEmail({ user, url }) {
+			// Email verification will be implemented when needed
+			console.log(`Email verification for ${user.email}: ${url}`);
+		},
 	},
 	socialProviders: {
 		google: {
@@ -82,11 +88,26 @@ export const auth = betterAuth({
 			return crypto.randomUUID();
 		},
 	},
-	plugins: [bearer()],
+	plugins: [
+		bearer()
+	],
 	trustedOrigins: process.env.NODE_ENV === "production" 
 		? [getBaseURL()] 
 		: ["http://localhost:3000"],
+	// Runtime debe ser Node.js (no Edge)
+	runtimeEnv: "node",
 });
+
+// Helper to validate unique email before registration
+export async function checkEmailExists(email: string): Promise<boolean> {
+	try {
+		const existingUser = await db.select().from(user).where(eq(user.email, email.toLowerCase())).limit(1);
+		return existingUser.length > 0;
+	} catch (error) {
+		console.error("Error checking email:", error);
+		return false;
+	}
+}
 
 // Session validation helper
 export async function getCurrentUser(request: NextRequest) {
@@ -97,4 +118,15 @@ export async function getCurrentUser(request: NextRequest) {
     console.error("Error getting current user:", error);
     return null;
   }
+}
+
+// Server-side session helper for pages
+export async function getServerSession() {
+	try {
+		const session = await auth.api.getSession({ headers: await headers() });
+		return session;
+	} catch (error) {
+		console.error("Error getting server session:", error);
+		return null;
+	}
 }
