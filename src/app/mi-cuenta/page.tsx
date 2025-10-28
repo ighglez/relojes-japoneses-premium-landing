@@ -84,12 +84,12 @@ export default function MyAccountPage() {
   const shareReferralLink = async () => {
     if (referralData?.refCode) {
       const link = `${window.location.origin}?ref=${referralData.refCode}`;
-      const shareText = "Descubre relojes automáticos japoneses exclusivos de IWatches. ¡Descarga el catálogo gratis! 🎯⌚";
+      const shareText = "Descubre relojes automáticos japoneses exclusivos de IWatchWorks. ¡Descarga el catálogo gratis! 🎯⌚";
       
       if (navigator.share) {
         try {
           await navigator.share({
-            title: "IWatches - Catálogo de Relojes Automáticos",
+            title: "IWatchWorks - Catálogo de Relojes Automáticos",
             text: shareText,
             url: link,
           });

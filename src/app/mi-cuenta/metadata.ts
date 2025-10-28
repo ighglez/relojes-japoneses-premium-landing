@@ -1,6 +1,6 @@
-import { Metadata } from "next";
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Mi Cuenta - IWatches",
-  description: "Gestiona tu cuenta, comparte tu enlace de referidos y desbloquea el catálogo premium.",
+  title: "Mi Cuenta - IWatchWorks",
+  description: "Gestiona tus referidos, desbloquea el catálogo premium y accede a ofertas exclusivas.",
 };

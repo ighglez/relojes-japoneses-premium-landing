@@ -20,11 +20,11 @@ export default function Hero() {
             className="space-y-6"
           >
             <h1 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-medium text-graphite leading-tight">
-              Distribuidor independiente de relojes automáticos
+              Distribuidor independiente especializado en relojes automáticos japoneses.
             </h1>
             
             <p className="text-lg text-graphite/80 leading-relaxed">
-              En IWatchWorks seleccionamos cada pieza por su historia, precisión y carácter. Porque un reloj no se elige, se reconoce.
+              Creemos en el valor, la historia y la precisión.
             </p>
 
             {session?.user && (

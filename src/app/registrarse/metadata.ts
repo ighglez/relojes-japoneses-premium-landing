@@ -1,6 +1,6 @@
-import { Metadata } from "next";
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Registrarse - IWatches",
-  description: "Crea tu cuenta en IWatches para acceder al sistema de referidos y desbloquear el catálogo premium con precios especiales.",
+  title: "Registrarse - IWatchWorks",
+  description: "Crea tu cuenta en IWatchWorks y comienza a acumular referidos para desbloquear el catálogo premium con precios exclusivos.",
 };

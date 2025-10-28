@@ -36,16 +36,13 @@ function SignInContent() {
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
-      const { error } = await authClient.signIn.social({
+      await authClient.signIn.social({
         provider: "google",
         callbackURL: "/mi-cuenta",
       });
-      if (error?.code) {
-        toast.error("Error al iniciar sesión con Google. Por favor, intenta de nuevo.");
-        setGoogleLoading(false);
-      }
-    } catch {
-      toast.error("Error al conectar con Google. Verifica tu conexión.");
+    } catch (error) {
+      console.error("Google sign-in error:", error);
+      toast.error("Error al conectar con Google. Por favor, verifica tu configuración.");
       setGoogleLoading(false);
     }
   };
@@ -62,19 +59,25 @@ function SignInContent() {
     }
     setLoading(true);
     try {
-      const { error } = await authClient.signIn.email({
+      const { data, error } = await authClient.signIn.email({
         email: formData.email.trim(),
         password: formData.password,
         rememberMe: formData.rememberMe,
       });
+      
       if (error?.code) {
         toast.error("Email o contraseña incorrectos. Verifica tus datos e intenta de nuevo.");
         setLoading(false);
         return;
       }
+      
       toast.success("¡Bienvenido de nuevo!");
+      
+      // Espera un momento para que se guarde el token
+      await new Promise(resolve => setTimeout(resolve, 500));
       router.push("/mi-cuenta");
-    } catch {
+    } catch (err) {
+      console.error("Login error:", err);
       toast.error("Error al iniciar sesión. Por favor, intenta de nuevo.");
       setLoading(false);
     }

@@ -1,15 +1,9 @@
-# robots.txt for IWatches - Distribuidor de Relojes Automáticos Japoneses
+# https://www.robotstxt.org/robotstxt.html
 User-agent: *
 Allow: /
-Allow: /#catalogo
-Allow: /#confianza
-Allow: /#resenas
-Allow: /#contacto
-Disallow: /api/
-Disallow: /mi-cuenta
 
-# Crawl-delay for better indexing
-Crawl-delay: 1
+# Host
+Host: https://iwatchworks.com
 
 # Sitemaps
-Sitemap: https://iwatches.vercel.app/sitemap.xml
+Sitemap: https://iwatchworks.com/sitemap.xml

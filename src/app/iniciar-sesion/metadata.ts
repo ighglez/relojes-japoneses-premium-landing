@@ -1,6 +1,6 @@
-import { Metadata } from "next";
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Iniciar Sesión - IWatches",
-  description: "Accede a tu cuenta de IWatches para gestionar tus referidos y desbloquear el catálogo premium.",
+  title: "Iniciar Sesión - IWatchWorks",
+  description: "Accede a tu cuenta de IWatchWorks para gestionar tus referidos y desbloquear el catálogo premium.",
 };
