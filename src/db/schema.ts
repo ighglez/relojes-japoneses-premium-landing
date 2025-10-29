@@ -22,7 +22,7 @@ export const reviews = sqliteTable('reviews', {
   city: text('city').notNull(),
   text: text('text').notNull(),
   approved: integer('approved', { mode: 'boolean' }).notNull().default(false),
-  createdAt: text('createdAt').notNull(),
+  createdAt: text('created_at').notNull(),
 });
 
 export const leads = sqliteTable('leads', {
@@ -85,5 +85,5 @@ export const newsletterSubscribers = sqliteTable('newsletter_subscribers', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   email: text('email').notNull().unique(),
   source: text('source').notNull(),
-  createdAt: text('createdAt').notNull(),
+  createdAt: text('created_at').notNull(),
 });
