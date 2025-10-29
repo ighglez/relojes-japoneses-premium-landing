@@ -22,7 +22,10 @@ export const reviews = sqliteTable('reviews', {
   city: text('city').notNull(),
   text: text('text').notNull(),
   approved: integer('approved', { mode: 'boolean' }).notNull().default(false),
-  createdAt: text('created_at').notNull(),
+  createdAt: text('created_at').notNull().$mapWith({
+    mapFromDriverValue: (value: string) => value,
+    mapToDriverValue: (value: string) => value,
+  }),
 });
 
 export const leads = sqliteTable('leads', {
