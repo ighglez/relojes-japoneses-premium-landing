@@ -22,6 +22,13 @@
       "when": 1761480000000,
       "tag": "0002_ensure_email_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1761749841101,
+      "tag": "0003_loud_sandman",
+      "breakpoints": true
     }
   ]
 }

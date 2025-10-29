@@ -5,6 +5,8 @@ import ErrorReporter from "@/components/ErrorReporter";
 import Script from "next/script";
 import { Toaster } from "sonner";
 import OrganizationSchema from "@/components/OrganizationSchema";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXTAUTH_URL || "https://iwatchworks.com"),
@@ -112,6 +114,8 @@ export default function RootLayout({
         {children}
         <Toaster position="top-right" />
         <VisualEditsMessenger />
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

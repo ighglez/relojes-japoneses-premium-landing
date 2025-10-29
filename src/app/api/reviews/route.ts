@@ -5,11 +5,10 @@ import { eq, desc } from "drizzle-orm";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const revalidate = 0; // CRÍTICO: Sin caché
+export const revalidate = 0;
 
 export async function GET(request: NextRequest) {
   try {
-    // Headers para prevenir caché
     const headers = {
       'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
       'Pragma': 'no-cache',
@@ -32,7 +31,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("[Reviews API] Error fetching reviews:", error);
     return NextResponse.json(
-      { error: "Internal server error", reviews: [], count: 0 }, 
+      { error: "Internal server error: " + error, reviews: [], count: 0 }, 
       { status: 500 }
     );
   }
@@ -66,6 +65,6 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error("[Reviews API] Error submitting review:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error: " + error }, { status: 500 });
   }
 }

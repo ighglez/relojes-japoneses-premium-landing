@@ -22,7 +22,7 @@ export const reviews = sqliteTable('reviews', {
   city: text('city').notNull(),
   text: text('text').notNull(),
   approved: integer('approved', { mode: 'boolean' }).notNull().default(false),
-  createdAt: text('created_at').notNull(),
+  createdAt: text('createdAt').notNull(),
 });
 
 export const leads = sqliteTable('leads', {
@@ -79,4 +79,11 @@ export const verification = sqliteTable('verification', {
   expiresAt: text('expires_at').notNull(),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
+});
+
+export const newsletterSubscribers = sqliteTable('newsletter_subscribers', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  email: text('email').notNull().unique(),
+  source: text('source').notNull(),
+  createdAt: text('createdAt').notNull(),
 });

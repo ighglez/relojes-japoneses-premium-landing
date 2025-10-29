@@ -81,6 +81,21 @@ function RegisterForm() {
       if (data) {
         toast.success("¡Cuenta creada correctamente!");
         
+        // Guardar email en newsletter_subscribers
+        try {
+          await fetch("/api/newsletter", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: email.trim(),
+              source: "registration",
+            }),
+          });
+        } catch (newsletterErr) {
+          // No bloqueamos el registro si falla el newsletter
+          console.error("Newsletter subscription error:", newsletterErr);
+        }
+        
         // Esperar para asegurar que la sesión se guarde
         await new Promise(resolve => setTimeout(resolve, 500));
         

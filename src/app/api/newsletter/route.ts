@@ -4,13 +4,14 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { db } from "@/db";
-import { leads } from "@/db/schema";
+import { newsletterSubscribers } from "@/db/schema";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 
 // Validación estricta
 const NewsletterSchema = z.object({
   email: z.string().email().max(160),
-  source: z.enum(["newsletter", "catalog_download", "popup_5", "footer", "other"]).optional().default("newsletter"),
+  source: z.enum(["newsletter", "catalog_download", "popup_5", "footer", "registration", "other"]).optional().default("newsletter"),
   // Campo honeypot opcional desde el front (un input hidden llamado "website")
   website: z.string().optional(),
 });
@@ -74,30 +75,53 @@ export async function POST(request: NextRequest) {
     }
 
     const { email, source } = parsed.data;
+    const normalizedEmail = email.toLowerCase().trim();
 
-    // Persistencia (no rompemos si falla)
+    // Verificar si el email ya existe
     try {
-      await db.insert(leads).values({
-        email,
+      const existing = await db
+        .select()
+        .from(newsletterSubscribers)
+        .where(eq(newsletterSubscribers.email, normalizedEmail))
+        .limit(1);
+
+      if (existing.length > 0) {
+        // Email ya suscrito - devolver éxito sin enviar email duplicado
+        return NextResponse.json(
+          { ok: true, message: "Ya estás suscrito a nuestra newsletter.", alreadySubscribed: true },
+          { status: 200 }
+        );
+      }
+
+      // Insertar nuevo suscriptor
+      await db.insert(newsletterSubscribers).values({
+        email: normalizedEmail,
         source,
-        ts: new Date().toISOString(),
-        // @ts-ignore si tu schema no tiene campo ip
-        ip,
+        createdAt: new Date().toISOString(),
       });
-    } catch (dbErr) {
-      console.error("[newsletter] DB insert error:", dbErr);
+    } catch (dbErr: any) {
+      console.error("[newsletter] DB error:", dbErr);
+      
+      // Si es error de unicidad, manejar graciosamente
+      if (dbErr?.message?.includes("UNIQUE") || dbErr?.code === "SQLITE_CONSTRAINT") {
+        return NextResponse.json(
+          { ok: true, message: "Ya estás suscrito a nuestra newsletter.", alreadySubscribed: true },
+          { status: 200 }
+        );
+      }
+      
+      throw dbErr;
     }
 
-    // Email de bienvenida (opcional para catalog_download mostrar código)
+    // Email de bienvenida
     const RESEND_KEY = process.env.RESEND_API_KEY;
     const FROM = process.env.RESEND_FROM || "IWatchWorks <onboarding@resend.dev>";
-    // Tip: puedes usar tu dominio verificado como FROM para mejorar entregabilidad
 
     if (RESEND_KEY) {
       try {
         const resend = new Resend(RESEND_KEY);
 
-        const showDiscount = source === "catalog_download" || source === "popup_5";
+        const showDiscount = source === "catalog_download" || source === "popup_5" || source === "registration";
         const discountCode = showDiscount ? "WELCOME5" : undefined;
 
         const textBody = [
@@ -114,7 +138,7 @@ export async function POST(request: NextRequest) {
         const htmlBody = `
           <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; line-height:1.6;">
             <h1 style="color:#C6A664; margin: 0 0 16px;">¡Bienvenido a IWatchWorks!</h1>
-            <p>Gracias por suscribirte${source === "footer" ? " desde el pie de página" : ""}. Seleccionamos piezas por su equilibrio entre diseño, fiabilidad y legado relojero.</p>
+            <p>Gracias por suscribirte${source === "footer" ? " desde el pie de página" : source === "registration" ? " al crear tu cuenta" : ""}. Seleccionamos piezas por su equilibrio entre diseño, fiabilidad y legado relojero.</p>
             ${
               showDiscount
                 ? `
@@ -132,8 +156,8 @@ export async function POST(request: NextRequest) {
         `;
 
         await resend.emails.send({
-          from: FROM,            // remitente verificado
-          to: [email],           // al suscriptor
+          from: FROM,
+          to: [normalizedEmail],
           subject: "Bienvenido a IWatchWorks",
           text: textBody,
           html: htmlBody,
