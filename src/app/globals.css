@@ -1,3 +1,24 @@
+/* Updated: 2025-10-30T16:46:34.469Z */
+/* Updated: 2025-10-30T08:52:59.015Z */
+/* Updated: 2025-10-29T23:02:29.730Z */
+/* Updated: 2025-10-29T22:44:58.156Z */
+/* Updated: 2025-10-29T22:35:30.941Z */
+/* Updated: 2025-10-29T22:09:32.961Z */
+/* Updated: 2025-10-29T20:29:23.576Z */
+/* Updated: 2025-10-29T14:21:07.820Z */
+/* Updated: 2025-10-29T14:20:54.335Z */
+/* Updated: 2025-10-29T09:20:03.163Z */
+/* Updated: 2025-10-28T13:21:34.493Z */
+/* Updated: 2025-10-28T13:04:41.229Z */
+/* Updated: 2025-10-28T12:33:34.501Z */
+/* Updated: 2025-10-28T11:52:41.982Z */
+/* Updated: 2025-10-28T11:15:03.957Z */
+/* Updated: 2025-10-28T09:47:05.205Z */
+/* Updated: 2025-10-27T16:23:30.626Z */
+/* Updated: 2025-10-27T16:21:32.713Z */
+/* Updated: 2025-10-27T09:14:10.740Z */
+/* Updated: 2025-10-26T18:52:57.866Z */
+/* Updated: 2025-10-26T18:46:00.302Z */
 /* Updated: 2025-10-26T12:13:23.822Z */
 /* Updated: 2025-10-26T11:55:32.090Z */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
@@ -85,6 +106,24 @@
   
   .reflection-hover:hover::before {
     left: 100%;
+  }
+
+  /* Gradient animation utilities */
+  @keyframes gradient-shift {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  .animate-gradient {
+    animation: gradient-shift 3s ease infinite;
+  }
+
+  .bg-size-200 {
+    background-size: 200% 200%;
   }
 }
 
