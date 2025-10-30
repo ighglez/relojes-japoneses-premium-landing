@@ -5,8 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { Mail, Lock, User, ArrowRight, Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 function RegisterForm() {
   const router = useRouter();
@@ -16,8 +15,6 @@ function RegisterForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -124,159 +121,108 @@ function RegisterForm() {
 
   return (
     <div className="min-h-screen bg-ivory flex items-center justify-center px-4 py-12">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
-      >
+      <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <Link href="/" className="inline-block mb-8">
-            <h1 className="font-heading text-2xl font-semibold text-graphite hover:text-champagne transition-colors">
+          <Link href="/" className="inline-block mb-6">
+            <h1 className="font-heading text-2xl font-medium text-graphite hover:text-champagne transition-colors">
               IWatchWorks
             </h1>
           </Link>
-          <h2 className="font-heading text-3xl md:text-4xl font-medium text-graphite mb-3">
+          <h2 className="font-heading text-3xl font-medium text-graphite mb-2">
             Crea tu cuenta
           </h2>
-          <p className="text-graphite/70 text-base">
+          <p className="text-graphite/60">
             Únete y desbloquea beneficios exclusivos
           </p>
         </div>
 
         {/* Main Card */}
-        <div className="bg-white rounded-lg shadow-lg border border-pearl p-8">
-          <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="bg-white rounded-lg border border-pearl p-8 mb-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {/* Name Field */}
-            <div className="space-y-2">
-              <label htmlFor="name" className="block text-sm font-medium text-graphite">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-graphite mb-1.5">
                 Nombre completo
               </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-graphite/40" />
-                <input
-                  id="name"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-pearl rounded-lg focus:outline-none focus:ring-2 focus:ring-champagne/50 focus:border-champagne transition-all bg-white"
-                  placeholder="Juan Pérez"
-                  disabled={isLoading}
-                  required
-                />
-              </div>
+              <input
+                id="name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-4 py-2.5 border border-pearl rounded-lg focus:outline-none focus:ring-2 focus:ring-champagne/50 focus:border-champagne transition-all bg-white text-graphite"
+                placeholder="Juan Pérez"
+                disabled={isLoading}
+                required
+              />
             </div>
 
             {/* Email Field */}
-            <div className="space-y-2">
-              <label htmlFor="email" className="block text-sm font-medium text-graphite">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-graphite mb-1.5">
                 Correo electrónico
               </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-graphite/40" />
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-pearl rounded-lg focus:outline-none focus:ring-2 focus:ring-champagne/50 focus:border-champagne transition-all bg-white"
-                  placeholder="tu@email.com"
-                  disabled={isLoading}
-                  required
-                />
-              </div>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-2.5 border border-pearl rounded-lg focus:outline-none focus:ring-2 focus:ring-champagne/50 focus:border-champagne transition-all bg-white text-graphite"
+                placeholder="tu@email.com"
+                disabled={isLoading}
+                required
+              />
             </div>
 
             {/* Password Field */}
-            <div className="space-y-2">
-              <label htmlFor="password" className="block text-sm font-medium text-graphite">
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-graphite mb-1.5">
                 Contraseña
               </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-graphite/40" />
-                <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 border border-pearl rounded-lg focus:outline-none focus:ring-2 focus:ring-champagne/50 focus:border-champagne transition-all bg-white"
-                  placeholder="Mínimo 8 caracteres"
-                  autoComplete="off"
-                  disabled={isLoading}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-graphite/40 hover:text-champagne transition-colors"
-                >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
-              </div>
-              {password && (
-                <div className="flex gap-1 mt-2">
-                  <div className={`h-1 flex-1 rounded ${password.length >= 8 ? 'bg-green-500' : password.length >= 5 ? 'bg-yellow-500' : 'bg-red-500'}`} />
-                  <div className={`h-1 flex-1 rounded ${password.length >= 8 ? 'bg-green-500' : password.length >= 5 ? 'bg-yellow-500' : 'bg-gray-200'}`} />
-                  <div className={`h-1 flex-1 rounded ${password.length >= 8 ? 'bg-green-500' : 'bg-gray-200'}`} />
-                </div>
-              )}
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-2.5 border border-pearl rounded-lg focus:outline-none focus:ring-2 focus:ring-champagne/50 focus:border-champagne transition-all bg-white text-graphite"
+                placeholder="Mínimo 8 caracteres"
+                autoComplete="off"
+                disabled={isLoading}
+                required
+              />
             </div>
 
             {/* Confirm Password Field */}
-            <div className="space-y-2">
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-graphite">
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-graphite mb-1.5">
                 Confirmar contraseña
               </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-graphite/40" />
-                <input
-                  id="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 border border-pearl rounded-lg focus:outline-none focus:ring-2 focus:ring-champagne/50 focus:border-champagne transition-all bg-white"
-                  placeholder="Repite tu contraseña"
-                  autoComplete="off"
-                  disabled={isLoading}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-graphite/40 hover:text-champagne transition-colors"
-                >
-                  {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
-              </div>
-              {confirmPassword && password === confirmPassword && (
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="flex items-center gap-2 text-green-600 text-sm"
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                  <span>Las contraseñas coinciden</span>
-                </motion.div>
-              )}
+              <input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full px-4 py-2.5 border border-pearl rounded-lg focus:outline-none focus:ring-2 focus:ring-champagne/50 focus:border-champagne transition-all bg-white text-graphite"
+                placeholder="Repite tu contraseña"
+                autoComplete="off"
+                disabled={isLoading}
+                required
+              />
             </div>
 
             {/* Submit Button */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-champagne text-ivory font-medium py-3 px-6 rounded-lg hover:bg-opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed reflection-hover flex items-center justify-center gap-2"
+              className="w-full bg-champagne text-ivory font-medium py-3 rounded-lg hover:bg-opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed reflection-hover"
             >
               {isLoading ? (
-                <>
+                <span className="flex items-center justify-center gap-2">
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  <span>Creando cuenta...</span>
-                </>
+                  Creando cuenta...
+                </span>
               ) : (
-                <>
-                  <span>Crear cuenta</span>
-                  <ArrowRight className="h-5 w-5" />
-                </>
+                "Crear cuenta"
               )}
             </button>
           </form>
@@ -287,7 +233,7 @@ function RegisterForm() {
               <div className="w-full border-t border-pearl" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-graphite/60">O regístrate con</span>
+              <span className="px-4 bg-white text-graphite/60">O continúa con</span>
             </div>
           </div>
 
@@ -295,7 +241,7 @@ function RegisterForm() {
           <button
             onClick={handleGoogleSignIn}
             disabled={isLoading}
-            className="w-full bg-white hover:bg-gray-50 text-graphite font-medium py-3 px-6 rounded-lg border border-pearl hover:border-champagne/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+            className="w-full bg-white hover:bg-gray-50 text-graphite font-medium py-3 rounded-lg border border-pearl hover:border-champagne/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -305,32 +251,21 @@ function RegisterForm() {
             </svg>
             <span>Continuar con Google</span>
           </button>
-
-          {/* Sign In Link */}
-          <div className="mt-6 text-center">
-            <p className="text-graphite/60 text-sm">
-              ¿Ya tienes cuenta?{" "}
-              <Link 
-                href="/iniciar-sesion" 
-                className="text-champagne hover:text-champagne/80 font-semibold transition-colors"
-              >
-                Inicia sesión
-              </Link>
-            </p>
-          </div>
         </div>
 
-        {/* Back to Home */}
-        <div className="mt-6 text-center">
-          <Link 
-            href="/" 
-            className="text-graphite/60 hover:text-champagne text-sm font-medium transition-colors inline-flex items-center gap-2"
-          >
-            <ArrowRight className="h-4 w-4 rotate-180" />
-            Volver al inicio
-          </Link>
+        {/* Sign In Link */}
+        <div className="text-center">
+          <p className="text-graphite/60 text-sm">
+            ¿Ya tienes cuenta?{" "}
+            <Link 
+              href="/iniciar-sesion" 
+              className="text-champagne hover:underline font-medium"
+            >
+              Inicia sesión
+            </Link>
+          </p>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }
