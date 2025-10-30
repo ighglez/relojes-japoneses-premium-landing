@@ -58,17 +58,21 @@ function RegisterForm() {
     setIsLoading(true);
 
     try {
-      const { data, error } = await authClient.signUp.email({
-        email: email.trim().toLowerCase(),
+      const normalizedEmail = email.trim().toLowerCase();
+      
+      // Step 1: Register
+      const { data: signUpData, error: signUpError } = await authClient.signUp.email({
+        email: normalizedEmail,
         password,
         name: name.trim(),
       });
 
-      if (error?.code) {
-        console.error("Error en registro:", error);
+      if (signUpError?.code) {
+        console.error("Error en registro:", signUpError);
         
-        if (error.code === "USER_ALREADY_EXISTS") {
-          toast.error("Este correo ya está registrado. Intenta iniciar sesión.");
+        if (signUpError.code === "USER_ALREADY_EXISTS" || signUpError.code === "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL") {
+          toast.error("Este correo ya está registrado. Por favor inicia sesión.");
+          setTimeout(() => router.push("/iniciar-sesion"), 1500);
         } else {
           toast.error("Error al crear la cuenta. Inténtalo de nuevo.");
         }
@@ -76,16 +80,14 @@ function RegisterForm() {
         return;
       }
 
-      if (data) {
-        toast.success("¡Cuenta creada exitosamente!");
-        
-        // Subscribe to newsletter
+      if (signUpData) {
+        // Step 2: Subscribe to newsletter
         try {
           await fetch("/api/newsletter", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              email: email.trim().toLowerCase(),
+              email: normalizedEmail,
               source: "registration",
             }),
           });
@@ -93,10 +95,13 @@ function RegisterForm() {
           console.error("Newsletter subscription error:", newsletterErr);
         }
         
-        // Redirect after short delay
+        toast.success("¡Cuenta creada! Redirigiendo...");
+        
+        // Step 3: Redirect to account (session is already set)
         setTimeout(() => {
           router.push("/mi-cuenta");
-        }, 500);
+          router.refresh();
+        }, 800);
       }
     } catch (err) {
       console.error("Error inesperado:", err);

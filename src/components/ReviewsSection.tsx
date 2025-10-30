@@ -3,7 +3,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Star, ChevronLeft, ChevronRight, Quote, Plus, MessageSquare, Loader2, AlertCircle } from "lucide-react";
 import { useState, useEffect } from "react";
-import Image from "next/image";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -297,21 +296,12 @@ export default function ReviewsSection() {
                   "{currentReview.text}"
                 </p>
 
-                {/* Author Info */}
+                {/* Author Info - SIN IMAGEN */}
                 <div className="flex items-center gap-4 relative z-10">
-                  <div className="relative">
-                    <Image
-                      src={`https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(currentReview.name)}&backgroundColor=C6A664`}
-                      alt={currentReview.name}
-                      width={64}
-                      height={64}
-                      className="rounded-full border-2 border-champagne/30 shadow-lg"
-                    />
-                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-white flex items-center justify-center">
-                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
+                  <div className="w-12 h-12 bg-champagne/20 rounded-full flex items-center justify-center border-2 border-champagne/40">
+                    <span className="text-champagne font-bold text-lg">
+                      {currentReview.name.charAt(0).toUpperCase()}
+                    </span>
                   </div>
                   <div>
                     <p className="text-graphite font-medium text-lg">{currentReview.name}</p>
