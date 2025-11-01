@@ -60,17 +60,17 @@ function RegisterForm() {
     try {
       const normalizedEmail = email.trim().toLowerCase();
       
-      // Step 1: Register
-      const { data: signUpData, error: signUpError } = await authClient.signUp.email({
+      // Registro con autoSignIn (better-auth establece sesión automáticamente)
+      const { data, error } = await authClient.signUp.email({
         email: normalizedEmail,
         password,
         name: name.trim(),
       });
 
-      if (signUpError?.code) {
-        console.error("Error en registro:", signUpError);
+      if (error?.code) {
+        console.error("Error en registro:", error);
         
-        if (signUpError.code === "USER_ALREADY_EXISTS" || signUpError.code === "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL") {
+        if (error.code === "USER_ALREADY_EXISTS") {
           toast.error("Este correo ya está registrado. Por favor inicia sesión.");
           setTimeout(() => router.push("/iniciar-sesion"), 1500);
         } else {
@@ -80,8 +80,8 @@ function RegisterForm() {
         return;
       }
 
-      if (signUpData) {
-        // Step 2: Subscribe to newsletter
+      if (data) {
+        // Suscripción al newsletter
         try {
           await fetch("/api/newsletter", {
             method: "POST",
@@ -91,17 +91,21 @@ function RegisterForm() {
               source: "registration",
             }),
           });
-        } catch (newsletterErr) {
-          console.error("Newsletter subscription error:", newsletterErr);
+        } catch (err) {
+          console.error("Newsletter error:", err);
         }
         
-        toast.success("¡Cuenta creada! Redirigiendo...");
+        // Guardar token manualmente
+        if (data.token) {
+          localStorage.setItem("bearer_token", data.token);
+        }
         
-        // Step 3: Redirect to account (session is already set)
+        toast.success("¡Cuenta creada exitosamente!");
+        
+        // Esperar un poco para que se establezca la sesión
         setTimeout(() => {
-          router.push("/mi-cuenta");
-          router.refresh();
-        }, 800);
+          window.location.href = "/mi-cuenta";
+        }, 1000);
       }
     } catch (err) {
       console.error("Error inesperado:", err);

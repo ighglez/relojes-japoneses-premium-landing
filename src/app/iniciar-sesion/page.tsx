@@ -51,11 +51,17 @@ function LoginForm() {
       }
 
       if (data) {
+        // Guardar token si viene
+        if (data.token) {
+          localStorage.setItem("bearer_token", data.token);
+        }
+        
         toast.success("¡Bienvenido de nuevo!");
+        
         setTimeout(() => {
           const callbackURL = searchParams.get("next") || "/mi-cuenta";
-          router.push(callbackURL);
-        }, 500);
+          window.location.href = callbackURL;
+        }, 800);
       }
     } catch (err) {
       console.error("Error inesperado:", err);
