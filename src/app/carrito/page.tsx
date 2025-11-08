@@ -8,9 +8,11 @@ import { useCart } from "@/contexts/CartContext";
 import { useSession } from "@/lib/auth-client";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Minus, Plus, Trash2, ShoppingBag, Loader2, Tag, X, CreditCard, Package } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, Loader2, Tag, X, CreditCard, Package, Shield, Truck, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
+
+const FREE_SHIPPING_THRESHOLD = 150;
 
 export default function CarritoPage() {
   const router = useRouter();
@@ -34,6 +36,9 @@ export default function CarritoPage() {
   });
 
   const total = subtotal - discount;
+  const remainingForFreeShipping = Math.max(0, FREE_SHIPPING_THRESHOLD - subtotal);
+  const hasFreeShipping = subtotal >= FREE_SHIPPING_THRESHOLD;
+  const freeShippingProgress = Math.min(100, (subtotal / FREE_SHIPPING_THRESHOLD) * 100);
 
   useEffect(() => {
     if (session?.user) {
@@ -226,6 +231,32 @@ export default function CarritoPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Cart Items */}
           <div className="lg:col-span-2 space-y-4">
+            {/* Free Shipping Progress */}
+            {!hasFreeShipping && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-champagne/10 border border-champagne/30 rounded-lg p-4 mb-4"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-graphite">
+                    {remainingForFreeShipping > 0
+                      ? `Te faltan ${remainingForFreeShipping.toFixed(2)} € para envío gratuito`
+                      : "¡Tienes envío gratuito!"}
+                  </p>
+                  <Truck className="h-5 w-5 text-champagne" />
+                </div>
+                <div className="w-full bg-pearl rounded-full h-2 overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${freeShippingProgress}%` }}
+                    transition={{ duration: 0.5 }}
+                    className="h-full bg-champagne"
+                  />
+                </div>
+              </motion.div>
+            )}
+
             {items.map((item) => (
               <motion.div
                 key={item.id}
@@ -345,7 +376,9 @@ export default function CarritoPage() {
                 )}
                 <div className="flex justify-between text-sm">
                   <span className="text-graphite/70">Envío</span>
-                  <span className="font-medium text-graphite">Calculado en checkout</span>
+                  <span className="font-medium text-graphite">
+                    {hasFreeShipping ? "Gratis" : "Calculado en checkout"}
+                  </span>
                 </div>
               </div>
 
@@ -426,9 +459,27 @@ export default function CarritoPage() {
                 </div>
               </PayPalScriptProvider>
 
-              <p className="text-xs text-graphite/60 text-center">
-                Pago 100% seguro con PayPal o tarjeta
-              </p>
+              {/* Trust Badges */}
+              <div className="pt-4 border-t border-pearl">
+                <div className="grid grid-cols-2 gap-3 text-xs text-graphite/70">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-champagne" />
+                    <span>Pago seguro</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Truck className="h-4 w-4 text-champagne" />
+                    <span>Envío asegurado</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-champagne" />
+                    <span>Autenticidad garantizada</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-champagne" />
+                    <span>Factura emitida</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
