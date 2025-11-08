@@ -106,6 +106,33 @@ export async function GET(request: NextRequest) {
     const id = searchParams.get('id');
     const userId = searchParams.get('userId');
     const email = searchParams.get('email');
+    const orderNumber = searchParams.get('orderNumber');
+
+    // Get order by orderNumber
+    if (orderNumber) {
+      const order = await db
+        .select()
+        .from(orders)
+        .where(eq(orders.orderNumber, orderNumber))
+        .limit(1);
+
+      if (order.length === 0) {
+        return NextResponse.json(
+          { error: 'Order not found', code: 'ORDER_NOT_FOUND' },
+          { status: 404 }
+        );
+      }
+
+      const items = await db
+        .select()
+        .from(orderItems)
+        .where(eq(orderItems.orderId, order[0].id));
+
+      return NextResponse.json({
+        ...order[0],
+        items,
+      });
+    }
 
     if (id) {
       if (!id || isNaN(parseInt(id))) {
