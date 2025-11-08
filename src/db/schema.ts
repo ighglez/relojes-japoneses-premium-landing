@@ -1,4 +1,4 @@
-import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, integer, text, real } from 'drizzle-orm/sqlite-core';
 
 export const downloads = sqliteTable('downloads', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -86,4 +86,107 @@ export const newsletterSubscribers = sqliteTable('newsletter_subscribers', {
   email: text('email').notNull().unique(),
   source: text('source').notNull(),
   createdAt: text('created_at').notNull(),
+});
+
+export const products = sqliteTable('products', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  brand: text('brand').notNull(),
+  reference: text('reference').notNull(),
+  description: text('description'),
+  imageUrl: text('image_url'),
+  price: real('price').notNull(),
+  stock: integer('stock').notNull().default(0),
+  category: text('category').notNull(),
+  features: text('features', { mode: 'json' }),
+  isFeatured: integer('is_featured', { mode: 'boolean' }).notNull().default(false),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
+export const cartItems = sqliteTable('cart_items', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: text('user_id').references(() => user.id),
+  sessionId: text('session_id'),
+  productId: integer('product_id').references(() => products.id),
+  quantity: integer('quantity').notNull().default(1),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
+export const orders = sqliteTable('orders', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  orderNumber: text('order_number').notNull().unique(),
+  userId: text('user_id').references(() => user.id),
+  guestEmail: text('guest_email'),
+  guestName: text('guest_name'),
+  subtotal: real('subtotal').notNull(),
+  discountAmount: real('discount_amount').notNull().default(0),
+  total: real('total').notNull(),
+  couponCode: text('coupon_code'),
+  paymentMethod: text('payment_method').notNull(),
+  paymentId: text('payment_id'),
+  status: text('status').notNull().default('pending'),
+  shippingName: text('shipping_name').notNull(),
+  shippingEmail: text('shipping_email').notNull(),
+  shippingPhone: text('shipping_phone').notNull(),
+  shippingAddress: text('shipping_address').notNull(),
+  shippingCity: text('shipping_city').notNull(),
+  shippingPostalCode: text('shipping_postal_code').notNull(),
+  shippingCountry: text('shipping_country').notNull(),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
+export const orderItems = sqliteTable('order_items', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  orderId: integer('order_id').references(() => orders.id),
+  productId: integer('product_id').references(() => products.id),
+  productName: text('product_name').notNull(),
+  productReference: text('product_reference').notNull(),
+  unitPrice: real('unit_price').notNull(),
+  quantity: integer('quantity').notNull(),
+  subtotal: real('subtotal').notNull(),
+  createdAt: text('created_at').notNull(),
+});
+
+export const coupons = sqliteTable('coupons', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  code: text('code').notNull().unique(),
+  type: text('type').notNull(),
+  value: real('value').notNull(),
+  minPurchase: real('min_purchase'),
+  startDate: text('start_date').notNull(),
+  endDate: text('end_date'),
+  active: integer('active', { mode: 'boolean' }).notNull().default(true),
+  oneTimePerUser: integer('one_time_per_user', { mode: 'boolean' }).notNull().default(false),
+  maxUses: integer('max_uses'),
+  currentUses: integer('current_uses').notNull().default(0),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
+export const couponRedemptions = sqliteTable('coupon_redemptions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  couponId: integer('coupon_id').references(() => coupons.id),
+  userId: text('user_id').references(() => user.id),
+  email: text('email').notNull(),
+  orderId: integer('order_id').references(() => orders.id),
+  redeemedAt: text('redeemed_at').notNull(),
+});
+
+export const wishlists = sqliteTable('wishlists', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: text('user_id').notNull().references(() => user.id),
+  productId: integer('product_id').references(() => products.id),
+  createdAt: text('created_at').notNull(),
+});
+
+export const stockNotifications = sqliteTable('stock_notifications', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  productId: integer('product_id').references(() => products.id),
+  email: text('email').notNull(),
+  notified: integer('notified', { mode: 'boolean' }).notNull().default(false),
+  createdAt: text('created_at').notNull(),
+  notifiedAt: text('notified_at'),
 });
