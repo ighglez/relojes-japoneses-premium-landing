@@ -15,7 +15,7 @@ export default function Navigation() {
 
   const navLinks = [
     { href: "#inicio", label: "Inicio" },
-    { href: "/productos", label: "Catálogo" },
+    { href: "/productos", label: "Tienda" },
     { href: "#confianza", label: "Confianza" },
     { href: "#resenas", label: "Reseñas" },
     { href: "#contacto", label: "Contacto" },

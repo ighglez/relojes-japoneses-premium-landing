@@ -3,8 +3,9 @@
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import { ShoppingCart, Heart, Package, Sparkles, Award } from "lucide-react";
+import { ShoppingCart, Heart, Package, Sparkles, Award, Zap } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -27,6 +28,7 @@ interface ProductCardProps {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const { addItem } = useCart();
+  const router = useRouter();
   const [isAdding, setIsAdding] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
 
@@ -47,6 +49,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     if (product.stock === 0) {
       toast.error("Producto sin stock");
       return;
@@ -59,8 +62,25 @@ export default function ProductCard({ product }: ProductCardProps) {
     }
   };
 
+  const handleBuyNow = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (product.stock === 0) {
+      toast.error("Producto sin stock");
+      return;
+    }
+    setIsAdding(true);
+    try {
+      await addItem(product);
+      router.push("/carrito");
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
   const handleToggleWishlist = async (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     const token = localStorage.getItem("bearer_token");
     if (!token) {
       toast.error("Debes iniciar sesión para usar la lista de deseos");
@@ -97,9 +117,9 @@ export default function ProductCard({ product }: ProductCardProps) {
       transition={{ duration: 0.3 }}
       className="group"
     >
-      <Link href={`/productos/${product.slug}`} className="block">
-        <div className="bg-white rounded-lg border border-pearl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300">
-          {/* Image */}
+      <div className="bg-white rounded-lg border border-pearl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300">
+        {/* Image */}
+        <Link href={`/productos/${product.slug}`} className="block">
           <div className="relative aspect-square bg-pearl overflow-hidden">
             <Image
               src={imageUrl}
@@ -160,45 +180,55 @@ export default function ProductCard({ product }: ProductCardProps) {
               </div>
             )}
           </div>
+        </Link>
 
-          {/* Content */}
-          <div className="p-4">
+        {/* Content */}
+        <div className="p-4">
+          <Link href={`/productos/${product.slug}`}>
             <div className="mb-2">
               <p className="text-xs text-champagne font-medium uppercase tracking-wide mb-1">
                 {product.brand}
               </p>
-              <h3 className="font-heading text-lg font-medium text-graphite mb-1 line-clamp-1">
+              <h3 className="font-heading text-lg font-medium text-graphite mb-1 line-clamp-1 hover:text-champagne transition-colors">
                 {product.name}
               </h3>
               <p className="text-xs text-graphite/60">Ref: {product.reference}</p>
             </div>
+          </Link>
 
-            {product.description && (
-              <p className="text-sm text-graphite/70 mb-3 line-clamp-2">
-                {product.description}
-              </p>
-            )}
+          {product.description && (
+            <p className="text-sm text-graphite/70 mb-3 line-clamp-2">
+              {product.description}
+            </p>
+          )}
 
-            {/* Price & Actions */}
-            <div className="flex items-center justify-between mt-4">
-              <div>
-                <p className="text-2xl font-bold text-champagne">
-                  {product.price.toFixed(2)} €
-                </p>
-              </div>
+          {/* Price */}
+          <div className="mb-4">
+            <p className="text-2xl font-bold text-champagne">
+              {product.price.toFixed(2)} €
+            </p>
+          </div>
 
-              <button
-                onClick={handleAddToCart}
-                disabled={isAdding || product.stock === 0}
-                className="px-4 py-2 bg-champagne text-ivory rounded-lg hover:bg-opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium"
-              >
-                <ShoppingCart className="h-4 w-4" />
-                {isAdding ? "..." : product.stock === 0 ? "Sin stock" : "Añadir"}
-              </button>
-            </div>
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            <button
+              onClick={handleBuyNow}
+              disabled={isAdding || product.stock === 0}
+              className="flex-1 px-3 py-2.5 bg-champagne text-ivory rounded-lg hover:bg-opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
+            >
+              <Zap className="h-4 w-4" />
+              {product.stock === 0 ? "Sin stock" : "Comprar ahora"}
+            </button>
+            
+            <Link 
+              href={`/productos/${product.slug}`}
+              className="flex-1 px-3 py-2.5 border-2 border-pearl text-graphite rounded-lg hover:bg-pearl transition-all flex items-center justify-center text-sm font-medium"
+            >
+              Ver detalles
+            </Link>
           </div>
         </div>
-      </Link>
+      </div>
     </motion.div>
   );
 }

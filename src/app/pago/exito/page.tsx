@@ -61,7 +61,7 @@ function PagoExitoContent() {
           ¡Pago completado con éxito!
         </h1>
         <p className="text-lg text-graphite/70 mb-8">
-          Tu pedido ha sido procesado correctamente
+          Tu pedido ha sido procesado correctamente. Recibirás una confirmación por correo electrónico.
         </p>
 
         {/* Order Details */}
@@ -203,13 +203,20 @@ function PagoExitoContent() {
           </div>
         </motion.div>
 
+        {/* Trust Footer */}
+        <div className="bg-white rounded-lg border border-pearl p-6 mb-8">
+          <p className="text-sm text-graphite/70">
+            <strong className="text-champagne">Envío asegurado</strong> • <strong className="text-champagne">Autenticidad garantizada</strong> • <strong className="text-champagne">Factura emitida</strong>
+          </p>
+        </div>
+
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link
             href="/productos"
             className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-champagne text-ivory font-medium rounded-lg hover:bg-opacity-90 transition-all"
           >
-            Seguir comprando
+            Volver a la tienda
             <ArrowRight className="h-5 w-5" />
           </Link>
           <Link

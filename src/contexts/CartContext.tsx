@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "sonner";
+import { trackAddToCart } from "@/lib/analytics";
 
 interface CartItem {
   id: number;
@@ -28,7 +29,7 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-export function CartProvider({ children }: { children: ReactNode }) {
+export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -84,10 +85,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       if (response.ok) {
         await fetchCart();
-        toast.success(`${product.name} añadido al carrito`);
+        toast.success("Añadido al carrito");
       } else {
         toast.error("Error al añadir al carrito");
       }
+
+      // Track analytics event
+      trackAddToCart({
+        id: product.id,
+        name: product.name,
+        brand: product.brand,
+        reference: product.reference,
+        price: product.price,
+        quantity: 1,
+      });
     } catch (error) {
       console.error("Error adding to cart:", error);
       toast.error("Error al añadir al carrito");

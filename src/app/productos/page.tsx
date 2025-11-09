@@ -156,7 +156,7 @@ export default function ProductosPage() {
           className="mb-8"
         >
           <h1 className="font-heading text-4xl md:text-5xl font-medium text-graphite mb-2">
-            Catálogo
+            Tienda
           </h1>
           <p className="text-lg text-graphite/70">
             Explora nuestra selección exclusiva de relojes automáticos japoneses

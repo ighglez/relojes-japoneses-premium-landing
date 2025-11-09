@@ -11,6 +11,7 @@ import Image from "next/image";
 import { Minus, Plus, Trash2, ShoppingBag, Loader2, Tag, X, CreditCard, Package, Shield, Truck, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
+import { trackBeginCheckout, trackPurchase } from "@/lib/analytics";
 
 const FREE_SHIPPING_THRESHOLD = 150;
 
@@ -23,6 +24,7 @@ export default function CarritoPage() {
   const [validatingCoupon, setValidatingCoupon] = useState(false);
   const [discount, setDiscount] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [checkoutTracked, setCheckoutTracked] = useState(false);
   
   // Shipping form
   const [shippingForm, setShippingForm] = useState({
@@ -49,6 +51,24 @@ export default function CarritoPage() {
       }));
     }
   }, [session]);
+
+  // Track begin_checkout when user views checkout page
+  useEffect(() => {
+    if (items.length > 0 && !checkoutTracked) {
+      trackBeginCheckout(
+        items.map((item) => ({
+          id: item.productId,
+          name: item.name,
+          brand: item.brand,
+          reference: item.reference,
+          price: item.price,
+          quantity: item.quantity,
+        })),
+        total
+      );
+      setCheckoutTracked(true);
+    }
+  }, [items, total, checkoutTracked]);
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) return;
@@ -177,6 +197,23 @@ export default function CarritoPage() {
       if (!response.ok) throw new Error("Failed to capture order");
 
       const result = await response.json();
+      
+      // Track purchase analytics
+      trackPurchase(
+        result.orderNumber,
+        items.map((item) => ({
+          id: item.productId,
+          name: item.name,
+          brand: item.brand,
+          reference: item.reference,
+          price: item.price,
+          quantity: item.quantity,
+        })),
+        subtotal,
+        discount,
+        total,
+        appliedCoupon?.code
+      );
       
       await clearCart();
       toast.success("¡Pago completado exitosamente!");

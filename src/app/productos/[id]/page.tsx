@@ -10,6 +10,7 @@ import Image from "next/image";
 import { ShoppingCart, Heart, Package, ArrowLeft, Loader2, Bell, Sparkles, Award, Shield, Truck, CreditCard, FileText } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
+import { trackProductView } from "@/lib/analytics";
 
 interface Product {
   id: number;
@@ -48,6 +49,20 @@ export default function ProductDetailPage() {
       fetchProduct(params.id as string);
     }
   }, [params.id]);
+
+  // Track product view
+  useEffect(() => {
+    if (product) {
+      trackProductView({
+        id: product.id,
+        name: product.name,
+        brand: product.brand,
+        reference: product.reference,
+        price: product.price,
+        category: product.category,
+      });
+    }
+  }, [product]);
 
   const fetchProduct = async (slug: string) => {
     try {
@@ -165,7 +180,7 @@ export default function ProductDetailPage() {
           className="flex items-center gap-2 text-graphite/70 hover:text-champagne transition-colors mb-8"
         >
           <ArrowLeft className="h-5 w-5" />
-          <span>Volver al catálogo</span>
+          <span>Volver a la tienda</span>
         </motion.button>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">

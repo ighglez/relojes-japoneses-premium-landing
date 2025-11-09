@@ -5,6 +5,7 @@ import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { motion } from "framer-motion";
 import { XCircle, ArrowLeft, ShoppingCart } from "lucide-react";
+import Link from "next/link";
 
 export default function PagoCanceladoPage() {
   const router = useRouter();
@@ -29,7 +30,7 @@ export default function PagoCanceladoPage() {
             Pago cancelado
           </h1>
           <p className="text-lg text-graphite/70 mb-12">
-            No se ha realizado ningún cargo. Tu carrito sigue disponible.
+            El pago fue cancelado. Puedes intentarlo de nuevo o volver a la tienda.
           </p>
 
           {/* Info Box */}
@@ -80,13 +81,13 @@ export default function PagoCanceladoPage() {
               <ShoppingCart className="h-5 w-5" />
               Volver al carrito
             </button>
-            <button
-              onClick={() => router.push("/productos")}
+            <Link
+              href="/productos"
               className="inline-flex items-center justify-center gap-2 px-8 py-3 border-2 border-pearl text-graphite font-medium rounded-lg hover:bg-pearl transition-all"
             >
               <ArrowLeft className="h-5 w-5" />
-              Seguir comprando
-            </button>
+              Volver a la tienda
+            </Link>
           </div>
         </motion.div>
       </main>

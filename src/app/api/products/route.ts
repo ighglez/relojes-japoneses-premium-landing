@@ -171,19 +171,43 @@ export async function POST(request: NextRequest) {
 
     const timestamp = new Date().toISOString();
 
+    // Extract additional fields from body
+    const {
+      slug,
+      series,
+      movement,
+      diameter,
+      color,
+      waterResistance,
+      currency,
+      isNew,
+      isExclusive,
+      images
+    } = body;
+
     const newProduct = await db
       .insert(products)
       .values({
+        slug: slug ? slug.trim() : null,
         name: name.trim(),
         brand: brand.trim(),
+        series: series ? series.trim() : null,
         reference: reference.trim(),
         description: description ? description.trim() : null,
+        movement: movement ? movement.trim() : null,
+        diameter: diameter ? diameter.trim() : null,
+        color: color ? color.trim() : null,
+        waterResistance: waterResistance ? waterResistance.trim() : null,
         imageUrl: imageUrl ? imageUrl.trim() : null,
         price,
+        currency: currency || 'EUR',
         stock,
         category: category.trim(),
         features: features || null,
+        isNew: isNew === true,
+        isExclusive: isExclusive === true,
         isFeatured: isFeatured === true,
+        images: images || null,
         createdAt: timestamp,
         updatedAt: timestamp,
       })

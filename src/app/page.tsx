@@ -17,7 +17,7 @@ export default function Home() {
       <BreadcrumbSchema 
         items={[
           { name: "Inicio", url: "https://iwatchworks.com" },
-          { name: "Catálogo", url: "https://iwatchworks.com/#catalogo" },
+          { name: "Tienda", url: "https://iwatchworks.com/productos" },
           { name: "Confianza", url: "https://iwatchworks.com/#confianza" },
         ]}
       />

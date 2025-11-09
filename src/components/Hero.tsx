@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import { Shield, PackageCheck } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
+import Link from "next/link";
 
 export default function Hero() {
   const { data: session } = useSession();
@@ -33,15 +34,27 @@ export default function Hero() {
               </p>
             )}
 
-            <motion.a
-              href="#catalogo"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="inline-block px-8 py-4 bg-champagne text-ivory font-medium rounded-lg hover:bg-opacity-90 transition-all duration-300 reflection-hover"
-              aria-label="Descargar catálogo"
-            >
-              Descargar catálogo
-            </motion.a>
+            <div className="flex flex-wrap gap-4">
+              <motion.a
+                href="#catalogo"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="inline-block px-8 py-4 bg-champagne text-ivory font-medium rounded-lg hover:bg-opacity-90 transition-all duration-300 reflection-hover"
+                aria-label="Descargar catálogo PDF"
+              >
+                Descargar catálogo
+              </motion.a>
+              
+              <Link href="/productos">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="inline-block px-8 py-4 bg-graphite text-ivory font-medium rounded-lg hover:bg-opacity-90 transition-all duration-300"
+                >
+                  Ver tienda
+                </motion.button>
+              </Link>
+            </div>
 
             {/* Trust Badges */}
             <div className="flex flex-wrap gap-4 pt-4">
