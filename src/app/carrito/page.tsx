@@ -8,12 +8,12 @@ import { useCart } from "@/contexts/CartContext";
 import { useSession } from "@/lib/auth-client";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Minus, Plus, Trash2, ShoppingBag, Loader2, Tag, X, CreditCard, Package, Shield, Truck, FileText } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, Loader2, Tag, X, Shield, Truck, CreditCard, FileText, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { trackBeginCheckout, trackPurchase } from "@/lib/analytics";
 
-const FREE_SHIPPING_THRESHOLD = 150;
+const STANDARD_SHIPPING = 19.99;
 
 export default function CarritoPage() {
   const router = useRouter();
@@ -23,6 +23,7 @@ export default function CarritoPage() {
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
   const [discount, setDiscount] = useState(0);
+  const [shippingCost, setShippingCost] = useState(STANDARD_SHIPPING);
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkoutTracked, setCheckoutTracked] = useState(false);
   
@@ -37,10 +38,8 @@ export default function CarritoPage() {
     country: "España",
   });
 
-  const total = subtotal - discount;
-  const remainingForFreeShipping = Math.max(0, FREE_SHIPPING_THRESHOLD - subtotal);
-  const hasFreeShipping = subtotal >= FREE_SHIPPING_THRESHOLD;
-  const freeShippingProgress = Math.min(100, (subtotal / FREE_SHIPPING_THRESHOLD) * 100);
+  const total = subtotal - discount + shippingCost;
+  const hasFreeShipping = appliedCoupon?.code === "WELCOME5";
 
   useEffect(() => {
     if (session?.user) {
@@ -94,7 +93,14 @@ export default function CarritoPage() {
       if (response.ok && data.valid) {
         setAppliedCoupon(data.coupon);
         setDiscount(data.discountAmount);
-        toast.success(`Cupón aplicado: -${data.discountAmount.toFixed(2)} €`);
+        
+        // WELCOME5 includes free shipping
+        if (data.coupon.code === "WELCOME5") {
+          setShippingCost(0);
+          toast.success(`Cupón aplicado: -${data.discountAmount.toFixed(2)} € + Envío gratis`);
+        } else {
+          toast.success(`Cupón aplicado: -${data.discountAmount.toFixed(2)} €`);
+        }
       } else {
         toast.error(data.message || "Cupón no válido");
       }
@@ -108,6 +114,7 @@ export default function CarritoPage() {
   const handleRemoveCoupon = () => {
     setAppliedCoupon(null);
     setDiscount(0);
+    setShippingCost(STANDARD_SHIPPING);
     setCouponCode("");
     toast.success("Cupón eliminado");
   };
@@ -143,6 +150,7 @@ export default function CarritoPage() {
           quantity: item.quantity,
           unitAmount: item.price.toFixed(2),
         })),
+        shippingAmount: shippingCost.toFixed(2),
         totalAmount: total.toFixed(2),
         currency: "EUR",
       };
@@ -183,6 +191,7 @@ export default function CarritoPage() {
         })),
         subtotal,
         discountAmount: discount,
+        shippingCost,
         total,
         couponCode: appliedCoupon?.code || null,
         shippingInfo: shippingForm,
@@ -268,32 +277,6 @@ export default function CarritoPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Cart Items */}
           <div className="lg:col-span-2 space-y-4">
-            {/* Free Shipping Progress */}
-            {!hasFreeShipping && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-champagne/10 border border-champagne/30 rounded-lg p-4 mb-4"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-graphite">
-                    {remainingForFreeShipping > 0
-                      ? `Te faltan ${remainingForFreeShipping.toFixed(2)} € para envío gratuito`
-                      : "¡Tienes envío gratuito!"}
-                  </p>
-                  <Truck className="h-5 w-5 text-champagne" />
-                </div>
-                <div className="w-full bg-pearl rounded-full h-2 overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${freeShippingProgress}%` }}
-                    transition={{ duration: 0.5 }}
-                    className="h-full bg-champagne"
-                  />
-                </div>
-              </motion.div>
-            )}
-
             {items.map((item) => (
               <motion.div
                 key={item.id}
@@ -306,7 +289,7 @@ export default function CarritoPage() {
                       <Image src={item.imageUrl} alt={item.name} fill className="object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <Package className="h-10 w-10 text-graphite/30" />
+                        <ShoppingBag className="h-10 w-10 text-graphite/30" />
                       </div>
                     )}
                   </div>
@@ -325,6 +308,7 @@ export default function CarritoPage() {
                     <button
                       onClick={() => removeItem(item.productId)}
                       className="p-2 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
+                      aria-label="Eliminar producto"
                     >
                       <Trash2 className="h-5 w-5" />
                     </button>
@@ -333,6 +317,7 @@ export default function CarritoPage() {
                       <button
                         onClick={() => updateQuantity(item.productId, item.quantity - 1)}
                         className="w-8 h-8 flex items-center justify-center bg-pearl hover:bg-champagne hover:text-ivory rounded transition-colors"
+                        aria-label="Disminuir cantidad"
                       >
                         <Minus className="h-4 w-4" />
                       </button>
@@ -342,6 +327,7 @@ export default function CarritoPage() {
                       <button
                         onClick={() => updateQuantity(item.productId, item.quantity + 1)}
                         className="w-8 h-8 flex items-center justify-center bg-pearl hover:bg-champagne hover:text-ivory rounded transition-colors"
+                        aria-label="Aumentar cantidad"
                       >
                         <Plus className="h-4 w-4" />
                       </button>
@@ -350,6 +336,15 @@ export default function CarritoPage() {
                 </div>
               </motion.div>
             ))}
+
+            <div className="flex justify-between items-center pt-4">
+              <button
+                onClick={() => router.push("/productos")}
+                className="text-sm text-graphite hover:text-champagne transition-colors flex items-center gap-2"
+              >
+                ← Seguir comprando
+              </button>
+            </div>
           </div>
 
           {/* Checkout Sidebar */}
@@ -368,13 +363,21 @@ export default function CarritoPage() {
                   <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-3">
                     <div className="flex items-center gap-2">
                       <Tag className="h-4 w-4 text-green-600" />
-                      <span className="text-sm font-medium text-green-700">
-                        {appliedCoupon.code}
-                      </span>
+                      <div>
+                        <span className="text-sm font-medium text-green-700 block">
+                          {appliedCoupon.code}
+                        </span>
+                        {appliedCoupon.code === "WELCOME5" && (
+                          <span className="text-xs text-green-600">
+                            5% descuento + Envío gratis
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <button
                       onClick={handleRemoveCoupon}
                       className="p-1 hover:bg-green-100 rounded"
+                      aria-label="Eliminar cupón"
                     >
                       <X className="h-4 w-4 text-green-600" />
                     </button>
@@ -397,6 +400,9 @@ export default function CarritoPage() {
                     </button>
                   </div>
                 )}
+                <p className="text-xs text-graphite/60 mt-2">
+                  Usa <span className="font-semibold">WELCOME5</span> para 5% de descuento + envío gratis
+                </p>
               </div>
 
               {/* Pricing */}
@@ -407,15 +413,22 @@ export default function CarritoPage() {
                 </div>
                 {discount > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-green-600">Descuento</span>
+                    <span className="text-green-600">Descuento ({appliedCoupon.value}%)</span>
                     <span className="font-medium text-green-600">-{discount.toFixed(2)} €</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
                   <span className="text-graphite/70">Envío</span>
                   <span className="font-medium text-graphite">
-                    {hasFreeShipping ? "Gratis" : "Calculado en checkout"}
+                    {hasFreeShipping ? (
+                      <span className="text-green-600">Gratis</span>
+                    ) : (
+                      `${shippingCost.toFixed(2)} €`
+                    )}
                   </span>
+                </div>
+                <div className="text-xs text-graphite/60">
+                  IVA incluido en el precio final
                 </div>
               </div>
 
@@ -473,6 +486,22 @@ export default function CarritoPage() {
                 </div>
               </div>
 
+              {/* CTA Button */}
+              <button
+                onClick={() => {
+                  if (validateShippingForm()) {
+                    const paypalButton = document.querySelector('[data-funding-source="paypal"]') as HTMLElement;
+                    if (paypalButton) {
+                      paypalButton.click();
+                    }
+                  }
+                }}
+                className="w-full mb-4 py-4 bg-champagne text-ivory font-medium text-lg rounded-lg hover:bg-opacity-90 transition-all flex items-center justify-center gap-2"
+              >
+                Ir a pagar
+                <ArrowRight className="h-5 w-5" />
+              </button>
+
               {/* PayPal Buttons */}
               <PayPalScriptProvider
                 options={{
@@ -491,6 +520,7 @@ export default function CarritoPage() {
                       color: "gold",
                       shape: "rect",
                       label: "checkout",
+                      height: 45,
                     }}
                   />
                 </div>

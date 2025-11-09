@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { motion } from "framer-motion";
 import { useState } from "react";
@@ -10,16 +11,43 @@ import CartDrawer from "@/components/cart/CartDrawer";
 
 export default function Navigation() {
   const { data: session } = useSession();
+  const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
 
   const navLinks = [
-    { href: "#inicio", label: "Inicio" },
+    { href: "/", label: "Inicio" },
     { href: "/productos", label: "Tienda" },
-    { href: "#confianza", label: "Confianza" },
-    { href: "#resenas", label: "Reseñas" },
-    { href: "#contacto", label: "Contacto" },
+    { href: "/#confianza", label: "Confianza" },
+    { href: "/#resenas", label: "Reseñas" },
+    { href: "/#contacto", label: "Contacto" },
   ];
+
+  const isActive = (href: string) => {
+    if (href === "/") {
+      return pathname === "/";
+    }
+    if (href.startsWith("/#")) {
+      return pathname === "/" && typeof window !== "undefined" && window.location.hash === href.substring(1);
+    }
+    return pathname === href || pathname.startsWith(href + "/");
+  };
+
+  const handleNavClick = (href: string, e: React.MouseEvent) => {
+    if (href.startsWith("/#")) {
+      e.preventDefault();
+      const id = href.substring(2);
+      if (pathname !== "/") {
+        window.location.href = href;
+      } else {
+        const element = document.getElementById(id);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }
+      setMobileMenuOpen(false);
+    }
+  };
 
   return (
     <>
@@ -36,14 +64,19 @@ export default function Navigation() {
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
               {navLinks.map((link) => (
-                <a
+                <Link
                   key={link.href}
                   href={link.href}
-                  className="text-sm font-medium text-graphite hover:text-champagne transition-colors duration-300"
+                  onClick={(e) => handleNavClick(link.href, e)}
+                  className={`text-sm font-medium transition-colors duration-300 ${
+                    isActive(link.href)
+                      ? "text-champagne font-semibold"
+                      : "text-graphite hover:text-champagne"
+                  }`}
                   aria-label={link.label}
                 >
                   {link.label}
-                </a>
+                </Link>
               ))}
             </div>
 
@@ -54,7 +87,11 @@ export default function Navigation() {
               {session?.user ? (
                 <Link
                   href="/mi-cuenta"
-                  className="text-sm font-medium text-graphite hover:text-champagne transition-colors duration-300"
+                  className={`text-sm font-medium transition-colors duration-300 ${
+                    pathname === "/mi-cuenta"
+                      ? "text-champagne font-semibold"
+                      : "text-graphite hover:text-champagne"
+                  }`}
                   aria-label="Mi cuenta"
                 >
                   Mi cuenta
@@ -63,7 +100,11 @@ export default function Navigation() {
                 <>
                   <Link
                     href="/iniciar-sesion"
-                    className="text-sm font-medium text-graphite hover:text-champagne transition-colors duration-300"
+                    className={`text-sm font-medium transition-colors duration-300 ${
+                      pathname === "/iniciar-sesion"
+                        ? "text-champagne font-semibold"
+                        : "text-graphite hover:text-champagne"
+                    }`}
                     aria-label="Iniciar sesión"
                   >
                     Iniciar sesión
@@ -86,6 +127,7 @@ export default function Navigation() {
                 className="p-2"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 aria-label="Toggle menu"
+                aria-expanded={mobileMenuOpen}
               >
                 {mobileMenuOpen ? (
                   <X className="h-6 w-6 text-graphite" />
@@ -107,20 +149,33 @@ export default function Navigation() {
           >
             <div className="px-4 py-4 space-y-3">
               {navLinks.map((link) => (
-                <a
+                <Link
                   key={link.href}
                   href={link.href}
-                  className="block text-sm font-medium text-graphite hover:text-champagne transition-colors"
-                  onClick={() => setMobileMenuOpen(false)}
+                  onClick={(e) => {
+                    handleNavClick(link.href, e);
+                    if (!link.href.startsWith("/#")) {
+                      setMobileMenuOpen(false);
+                    }
+                  }}
+                  className={`block text-sm font-medium transition-colors ${
+                    isActive(link.href)
+                      ? "text-champagne font-semibold"
+                      : "text-graphite hover:text-champagne"
+                  }`}
                 >
                   {link.label}
-                </a>
+                </Link>
               ))}
               <div className="pt-3 border-t border-pearl space-y-3">
                 {session?.user ? (
                   <Link
                     href="/mi-cuenta"
-                    className="block text-sm font-medium text-graphite hover:text-champagne transition-colors"
+                    className={`block text-sm font-medium transition-colors ${
+                      pathname === "/mi-cuenta"
+                        ? "text-champagne font-semibold"
+                        : "text-graphite hover:text-champagne"
+                    }`}
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     Mi cuenta
@@ -129,7 +184,11 @@ export default function Navigation() {
                   <>
                     <Link
                       href="/iniciar-sesion"
-                      className="block text-sm font-medium text-graphite hover:text-champagne transition-colors"
+                      className={`block text-sm font-medium transition-colors ${
+                        pathname === "/iniciar-sesion"
+                          ? "text-champagne font-semibold"
+                          : "text-graphite hover:text-champagne"
+                      }`}
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       Iniciar sesión

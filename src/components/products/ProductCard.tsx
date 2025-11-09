@@ -3,9 +3,8 @@
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import { ShoppingCart, Heart, Package, Sparkles, Award, Zap } from "lucide-react";
+import { Heart, Sparkles, Award } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -28,7 +27,6 @@ interface ProductCardProps {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const { addItem } = useCart();
-  const router = useRouter();
   const [isAdding, setIsAdding] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
 
@@ -57,22 +55,6 @@ export default function ProductCard({ product }: ProductCardProps) {
     setIsAdding(true);
     try {
       await addItem(product);
-    } finally {
-      setIsAdding(false);
-    }
-  };
-
-  const handleBuyNow = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (product.stock === 0) {
-      toast.error("Producto sin stock");
-      return;
-    }
-    setIsAdding(true);
-    try {
-      await addItem(product);
-      router.push("/carrito");
     } finally {
       setIsAdding(false);
     }
@@ -164,6 +146,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                   ? "bg-red-500 text-white"
                   : "bg-white/90 text-graphite hover:bg-champagne hover:text-ivory"
               }`}
+              aria-label={isInWishlist ? "Eliminar de favoritos" : "Añadir a favoritos"}
             >
               <Heart className={`h-4 w-4 ${isInWishlist ? "fill-current" : ""}`} />
             </button>
@@ -209,20 +192,20 @@ export default function ProductCard({ product }: ProductCardProps) {
             </p>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-2">
+          {/* Action Buttons - NEW STRATEGY */}
+          <div className="space-y-2">
             <button
-              onClick={handleBuyNow}
+              onClick={handleAddToCart}
               disabled={isAdding || product.stock === 0}
-              className="flex-1 px-3 py-2.5 bg-champagne text-ivory rounded-lg hover:bg-opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
+              className="w-full px-4 py-2.5 bg-champagne text-ivory rounded-lg hover:bg-opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+              aria-label="Añadir al carrito"
             >
-              <Zap className="h-4 w-4" />
-              {product.stock === 0 ? "Sin stock" : "Comprar ahora"}
+              {product.stock === 0 ? "Sin stock" : isAdding ? "Añadiendo..." : "Añadir al carrito"}
             </button>
             
             <Link 
               href={`/productos/${product.slug}`}
-              className="flex-1 px-3 py-2.5 border-2 border-pearl text-graphite rounded-lg hover:bg-pearl transition-all flex items-center justify-center text-sm font-medium"
+              className="block w-full text-center text-sm text-graphite hover:text-champagne transition-colors underline-offset-2 hover:underline"
             >
               Ver detalles
             </Link>

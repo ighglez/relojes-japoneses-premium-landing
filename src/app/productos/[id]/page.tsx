@@ -7,7 +7,7 @@ import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { ShoppingCart, Heart, Package, ArrowLeft, Loader2, Bell, Sparkles, Award, Shield, Truck, CreditCard, FileText } from "lucide-react";
+import { Heart, ArrowLeft, Loader2, Bell, Sparkles, Award, Shield, Truck, CreditCard, FileText } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
 import { trackProductView } from "@/lib/analytics";
@@ -40,9 +40,11 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
+  const [isBuying, setIsBuying] = useState(false);
   const [notifyEmail, setNotifyEmail] = useState("");
   const [notifying, setNotifying] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [isInWishlist, setIsInWishlist] = useState(false);
 
   useEffect(() => {
     if (params.id) {
@@ -112,6 +114,44 @@ export default function ProductDetailPage() {
     }
   };
 
+  const handleBuyNow = async () => {
+    if (!product || product.stock === 0) return;
+    setIsBuying(true);
+    try {
+      await addItem(product);
+      router.push("/carrito");
+    } finally {
+      setIsBuying(false);
+    }
+  };
+
+  const handleToggleWishlist = async () => {
+    const token = localStorage.getItem("bearer_token");
+    if (!token) {
+      toast.error("Debes iniciar sesión para usar la lista de deseos");
+      return;
+    }
+
+    try {
+      const method = isInWishlist ? "DELETE" : "POST";
+      const response = await fetch("/api/wishlist", {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ productId: product?.id }),
+      });
+
+      if (response.ok) {
+        setIsInWishlist(!isInWishlist);
+        toast.success(isInWishlist ? "Eliminado de favoritos" : "Añadido a favoritos");
+      }
+    } catch (error) {
+      toast.error("Error al actualizar favoritos");
+    }
+  };
+
   const handleNotifyStock = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!notifyEmail || !product) return;
@@ -178,6 +218,7 @@ export default function ProductDetailPage() {
           animate={{ opacity: 1, x: 0 }}
           onClick={() => router.back()}
           className="flex items-center gap-2 text-graphite/70 hover:text-champagne transition-colors mb-8"
+          aria-label="Volver a la tienda"
         >
           <ArrowLeft className="h-5 w-5" />
           <span>Volver a la tienda</span>
@@ -306,16 +347,32 @@ export default function ProductDetailPage() {
               {product.stock > 0 ? (
                 <>
                   <button
+                    onClick={handleBuyNow}
+                    disabled={isBuying}
+                    className="w-full py-4 bg-champagne text-ivory font-medium text-lg rounded-lg hover:bg-opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+                    aria-label="Comprar ahora"
+                  >
+                    {isBuying ? "Procesando..." : "Comprar ahora"}
+                  </button>
+                  <button
                     onClick={handleAddToCart}
                     disabled={isAdding}
-                    className="w-full py-4 bg-champagne text-ivory font-medium text-lg rounded-lg hover:bg-opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+                    className="w-full py-3 border-2 border-pearl text-graphite font-medium rounded-lg hover:bg-pearl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    aria-label="Añadir al carrito"
                   >
-                    <ShoppingCart className="h-5 w-5" />
                     {isAdding ? "Añadiendo..." : "Añadir al carrito"}
                   </button>
-                  <button className="w-full py-3 border-2 border-pearl text-graphite font-medium rounded-lg hover:bg-pearl transition-all flex items-center justify-center gap-2">
-                    <Heart className="h-5 w-5" />
-                    Añadir a favoritos
+                  <button
+                    onClick={handleToggleWishlist}
+                    className={`w-full py-3 border-2 font-medium rounded-lg transition-all flex items-center justify-center gap-2 ${
+                      isInWishlist
+                        ? "border-red-500 text-red-500 hover:bg-red-50"
+                        : "border-pearl text-graphite hover:bg-pearl"
+                    }`}
+                    aria-label={isInWishlist ? "Eliminar de favoritos" : "Añadir a favoritos"}
+                  >
+                    <Heart className={`h-5 w-5 ${isInWishlist ? "fill-current" : ""}`} />
+                    {isInWishlist ? "Eliminar de favoritos" : "Añadir a favoritos"}
                   </button>
                 </>
               ) : (
@@ -328,11 +385,13 @@ export default function ProductDetailPage() {
                       placeholder="tu@email.com"
                       required
                       className="flex-1 px-4 py-3 border border-pearl rounded-lg focus:outline-none focus:ring-2 focus:ring-champagne/50"
+                      aria-label="Email para notificación de stock"
                     />
                     <button
                       type="submit"
                       disabled={notifying}
                       className="px-6 py-3 bg-graphite text-ivory font-medium rounded-lg hover:bg-graphite/90 transition-all disabled:opacity-50 flex items-center gap-2"
+                      aria-label="Notificarme cuando esté disponible"
                     >
                       <Bell className="h-5 w-5" />
                       {notifying ? "..." : "Notificar"}
