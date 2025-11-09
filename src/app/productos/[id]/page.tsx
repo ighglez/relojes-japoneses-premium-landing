@@ -2,25 +2,34 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { ShoppingCart, Heart, Package, ArrowLeft, Loader2, Bell } from "lucide-react";
+import { ShoppingCart, Heart, Package, ArrowLeft, Loader2, Bell, Sparkles, Award, Shield, Truck, CreditCard, FileText } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
 
 interface Product {
   id: number;
+  slug: string;
   name: string;
   brand: string;
+  series: string;
   reference: string;
   description: string | null;
-  imageUrl: string | null;
+  movement: string | null;
+  diameter: string | null;
+  color: string | null;
+  waterResistance: string | null;
   price: number;
+  currency: string;
   stock: number;
   category: string;
-  features: any;
+  isNew: boolean;
+  isExclusive: boolean;
+  images: string[] | string | null;
 }
 
 export default function ProductDetailPage() {
@@ -32,6 +41,7 @@ export default function ProductDetailPage() {
   const [isAdding, setIsAdding] = useState(false);
   const [notifyEmail, setNotifyEmail] = useState("");
   const [notifying, setNotifying] = useState(false);
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     if (params.id) {
@@ -39,12 +49,18 @@ export default function ProductDetailPage() {
     }
   }, [params.id]);
 
-  const fetchProduct = async (id: string) => {
+  const fetchProduct = async (slug: string) => {
     try {
-      const response = await fetch(`/api/products/${id}`);
+      const response = await fetch(`/api/products?limit=100`);
       if (response.ok) {
         const data = await response.json();
-        setProduct(data.product);
+        const foundProduct = data.find((p: Product) => p.slug === slug);
+        if (foundProduct) {
+          setProduct(foundProduct);
+          fetchRelatedProducts(foundProduct.series, foundProduct.id);
+        } else {
+          router.push("/productos");
+        }
       } else {
         router.push("/productos");
       }
@@ -53,6 +69,21 @@ export default function ProductDetailPage() {
       router.push("/productos");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchRelatedProducts = async (series: string, currentId: number) => {
+    try {
+      const response = await fetch(`/api/products?limit=100`);
+      if (response.ok) {
+        const data = await response.json();
+        const related = data
+          .filter((p: Product) => p.series === series && p.id !== currentId)
+          .slice(0, 4);
+        setRelatedProducts(related);
+      }
+    } catch (error) {
+      console.error("Error fetching related products:", error);
     }
   };
 
@@ -104,6 +135,23 @@ export default function ProductDetailPage() {
 
   if (!product) return null;
 
+  // Parse images
+  let imageUrl = "/images/products/placeholder-watch.webp";
+  if (product.images) {
+    if (typeof product.images === "string") {
+      try {
+        const parsed = JSON.parse(product.images);
+        imageUrl = Array.isArray(parsed) && parsed.length > 0 ? parsed[0] : imageUrl;
+      } catch {
+        imageUrl = product.images;
+      }
+    } else if (Array.isArray(product.images) && product.images.length > 0) {
+      imageUrl = product.images[0];
+    }
+  }
+
+  const isLowStock = product.stock > 0 && product.stock <= 2;
+
   return (
     <div className="min-h-screen bg-ivory">
       <Navigation />
@@ -127,19 +175,34 @@ export default function ProductDetailPage() {
             animate={{ opacity: 1, x: 0 }}
             className="relative aspect-square bg-white rounded-lg border border-pearl overflow-hidden"
           >
-            {product.imageUrl ? (
-              <Image
-                src={product.imageUrl}
-                alt={`${product.brand} ${product.name}`}
-                fill
-                className="object-cover"
-                priority
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <Package className="h-32 w-32 text-graphite/20" />
-              </div>
-            )}
+            <Image
+              src={imageUrl}
+              alt={`${product.brand} ${product.name}`}
+              fill
+              className="object-cover"
+              priority
+            />
+
+            {/* Badges */}
+            <div className="absolute top-6 left-6 flex flex-col gap-2">
+              {product.isNew && (
+                <div className="flex items-center gap-2 bg-champagne text-ivory text-sm font-medium px-4 py-2 rounded-lg">
+                  <Sparkles className="h-4 w-4" />
+                  Nuevo
+                </div>
+              )}
+              {product.isExclusive && (
+                <div className="flex items-center gap-2 bg-graphite text-ivory text-sm font-medium px-4 py-2 rounded-lg">
+                  <Award className="h-4 w-4" />
+                  Exclusivo
+                </div>
+              )}
+              {isLowStock && (
+                <div className="bg-red-500 text-white text-sm font-medium px-4 py-2 rounded-lg">
+                  {product.stock === 1 ? "Última unidad" : `Solo quedan ${product.stock} unidades`}
+                </div>
+              )}
+            </div>
 
             {product.stock === 0 && (
               <div className="absolute top-6 left-6 bg-graphite/90 text-ivory px-4 py-2 rounded-lg font-medium">
@@ -156,7 +219,7 @@ export default function ProductDetailPage() {
           >
             <div className="mb-4">
               <p className="text-sm text-champagne font-medium uppercase tracking-wide mb-2">
-                {product.brand}
+                {product.brand} • {product.series}
               </p>
               <h1 className="font-heading text-4xl md:text-5xl font-medium text-graphite mb-2">
                 {product.name}
@@ -166,10 +229,14 @@ export default function ProductDetailPage() {
 
             <div className="mb-8">
               <p className="text-4xl font-bold text-champagne mb-2">
-                {product.price.toFixed(2)} €
+                {product.price.toFixed(2)} {product.currency}
               </p>
-              {product.stock > 0 && product.stock <= 3 && (
-                <p className="text-sm text-red-600">Solo quedan {product.stock} unidades</p>
+              {product.stock > 0 ? (
+                <p className="text-sm text-green-600 font-medium">
+                  ✓ En stock • Envío en 24-48 horas
+                </p>
+              ) : (
+                <p className="text-sm text-red-600 font-medium">Sin stock disponible</p>
               )}
             </div>
 
@@ -182,33 +249,60 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {product.features && Object.keys(product.features).length > 0 && (
-              <div className="mb-8 bg-white rounded-lg border border-pearl p-6">
-                <h2 className="font-heading text-xl font-medium text-graphite mb-4">
-                  Características
-                </h2>
-                <ul className="space-y-2">
-                  {Object.entries(product.features).map(([key, value]) => (
-                    <li key={key} className="flex justify-between text-sm">
-                      <span className="text-graphite/60">{key}:</span>
-                      <span className="font-medium text-graphite">{String(value)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            {/* Specifications */}
+            <div className="mb-8 bg-white rounded-lg border border-pearl p-6">
+              <h2 className="font-heading text-xl font-medium text-graphite mb-4">
+                Especificaciones
+              </h2>
+              <ul className="space-y-2">
+                {product.movement && (
+                  <li className="flex justify-between text-sm">
+                    <span className="text-graphite/60">Movimiento:</span>
+                    <span className="font-medium text-graphite">{product.movement}</span>
+                  </li>
+                )}
+                {product.diameter && (
+                  <li className="flex justify-between text-sm">
+                    <span className="text-graphite/60">Diámetro:</span>
+                    <span className="font-medium text-graphite">{product.diameter}</span>
+                  </li>
+                )}
+                {product.waterResistance && (
+                  <li className="flex justify-between text-sm">
+                    <span className="text-graphite/60">Resistencia al agua:</span>
+                    <span className="font-medium text-graphite">{product.waterResistance}</span>
+                  </li>
+                )}
+                {product.color && (
+                  <li className="flex justify-between text-sm">
+                    <span className="text-graphite/60">Color:</span>
+                    <span className="font-medium text-graphite">{product.color}</span>
+                  </li>
+                )}
+                <li className="flex justify-between text-sm">
+                  <span className="text-graphite/60">Serie:</span>
+                  <span className="font-medium text-graphite">{product.series}</span>
+                </li>
+              </ul>
+            </div>
 
             {/* Actions */}
-            <div className="space-y-4">
+            <div className="space-y-4 mb-8">
               {product.stock > 0 ? (
-                <button
-                  onClick={handleAddToCart}
-                  disabled={isAdding}
-                  className="w-full py-4 bg-champagne text-ivory font-medium text-lg rounded-lg hover:bg-opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
-                >
-                  <ShoppingCart className="h-5 w-5" />
-                  {isAdding ? "Añadiendo..." : "Añadir al carrito"}
-                </button>
+                <>
+                  <button
+                    onClick={handleAddToCart}
+                    disabled={isAdding}
+                    className="w-full py-4 bg-champagne text-ivory font-medium text-lg rounded-lg hover:bg-opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+                  >
+                    <ShoppingCart className="h-5 w-5" />
+                    {isAdding ? "Añadiendo..." : "Añadir al carrito"}
+                  </button>
+                  <button className="w-full py-3 border-2 border-pearl text-graphite font-medium rounded-lg hover:bg-pearl transition-all flex items-center justify-center gap-2">
+                    <Heart className="h-5 w-5" />
+                    Añadir a favoritos
+                  </button>
+                </>
               ) : (
                 <form onSubmit={handleNotifyStock} className="space-y-3">
                   <div className="flex gap-2">
@@ -234,14 +328,86 @@ export default function ProductDetailPage() {
                   </p>
                 </form>
               )}
+            </div>
 
-              <button className="w-full py-3 border-2 border-pearl text-graphite font-medium rounded-lg hover:bg-pearl transition-all flex items-center justify-center gap-2">
-                <Heart className="h-5 w-5" />
-                Añadir a favoritos
-              </button>
+            {/* Trust Badges */}
+            <div className="bg-champagne/10 border border-champagne/30 rounded-lg p-6">
+              <div className="grid grid-cols-2 gap-4 text-sm text-graphite">
+                <div className="flex items-center gap-3">
+                  <Shield className="h-5 w-5 text-champagne flex-shrink-0" />
+                  <span>Pago seguro</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Truck className="h-5 w-5 text-champagne flex-shrink-0" />
+                  <span>Envío asegurado</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <CreditCard className="h-5 w-5 text-champagne flex-shrink-0" />
+                  <span>Autenticidad garantizada</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <FileText className="h-5 w-5 text-champagne flex-shrink-0" />
+                  <span>Factura emitida</span>
+                </div>
+              </div>
             </div>
           </motion.div>
         </div>
+
+        {/* Related Products */}
+        {relatedProducts.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="mt-20"
+          >
+            <h2 className="font-heading text-3xl font-medium text-graphite mb-8">
+              Modelos relacionados
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {relatedProducts.map((related) => {
+                let relatedImageUrl = "/images/products/placeholder-watch.webp";
+                if (related.images) {
+                  if (typeof related.images === "string") {
+                    try {
+                      const parsed = JSON.parse(related.images);
+                      relatedImageUrl = Array.isArray(parsed) && parsed.length > 0 ? parsed[0] : relatedImageUrl;
+                    } catch {
+                      relatedImageUrl = related.images;
+                    }
+                  } else if (Array.isArray(related.images) && related.images.length > 0) {
+                    relatedImageUrl = related.images[0];
+                  }
+                }
+
+                return (
+                  <Link key={related.id} href={`/productos/${related.slug}`}>
+                    <div className="bg-white rounded-lg border border-pearl overflow-hidden hover:shadow-lg transition-all">
+                      <div className="relative aspect-square bg-pearl">
+                        <Image
+                          src={relatedImageUrl}
+                          alt={related.name}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                      <div className="p-4">
+                        <p className="text-xs text-champagne font-medium mb-1">{related.brand}</p>
+                        <h3 className="font-heading text-sm font-medium text-graphite mb-1 line-clamp-1">
+                          {related.name}
+                        </h3>
+                        <p className="text-lg font-bold text-champagne">
+                          {related.price.toFixed(2)} €
+                        </p>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
       </main>
 
       <Footer />

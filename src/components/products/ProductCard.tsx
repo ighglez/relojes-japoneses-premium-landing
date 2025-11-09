@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import { ShoppingCart, Heart, Package } from "lucide-react";
+import { ShoppingCart, Heart, Package, Sparkles, Award } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -11,14 +11,17 @@ import { toast } from "sonner";
 interface ProductCardProps {
   product: {
     id: number;
+    slug: string;
     name: string;
     brand: string;
+    series: string;
     reference: string;
     description: string | null;
-    imageUrl: string | null;
     price: number;
     stock: number;
-    category: string;
+    isNew?: boolean;
+    isExclusive?: boolean;
+    images?: string[] | string | null;
   };
 }
 
@@ -26,6 +29,21 @@ export default function ProductCard({ product }: ProductCardProps) {
   const { addItem } = useCart();
   const [isAdding, setIsAdding] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
+
+  // Parse images
+  let imageUrl = "/images/products/placeholder-watch.webp";
+  if (product.images) {
+    if (typeof product.images === "string") {
+      try {
+        const parsed = JSON.parse(product.images);
+        imageUrl = Array.isArray(parsed) && parsed.length > 0 ? parsed[0] : imageUrl;
+      } catch {
+        imageUrl = product.images;
+      }
+    } else if (Array.isArray(product.images) && product.images.length > 0) {
+      imageUrl = product.images[0];
+    }
+  }
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -69,6 +87,8 @@ export default function ProductCard({ product }: ProductCardProps) {
     }
   };
 
+  const isLowStock = product.stock > 0 && product.stock <= 2;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -77,24 +97,39 @@ export default function ProductCard({ product }: ProductCardProps) {
       transition={{ duration: 0.3 }}
       className="group"
     >
-      <Link href={`/productos/${product.id}`} className="block">
+      <Link href={`/productos/${product.slug}`} className="block">
         <div className="bg-white rounded-lg border border-pearl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300">
           {/* Image */}
           <div className="relative aspect-square bg-pearl overflow-hidden">
-            {product.imageUrl ? (
-              <Image
-                src={product.imageUrl}
-                alt={`${product.brand} ${product.name}`}
-                fill
-                className="object-cover group-hover:scale-105 transition-transform duration-500"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <Package className="h-20 w-20 text-graphite/20" />
-              </div>
-            )}
+            <Image
+              src={imageUrl}
+              alt={`${product.brand} ${product.name}`}
+              fill
+              className="object-cover group-hover:scale-105 transition-transform duration-500"
+            />
 
-            {/* Stock Badge */}
+            {/* Badges */}
+            <div className="absolute top-3 left-3 flex flex-col gap-2">
+              {product.isNew && (
+                <div className="flex items-center gap-1 bg-champagne text-ivory text-xs font-medium px-3 py-1 rounded-full">
+                  <Sparkles className="h-3 w-3" />
+                  Nuevo
+                </div>
+              )}
+              {product.isExclusive && (
+                <div className="flex items-center gap-1 bg-graphite text-ivory text-xs font-medium px-3 py-1 rounded-full">
+                  <Award className="h-3 w-3" />
+                  Exclusivo
+                </div>
+              )}
+              {isLowStock && (
+                <div className="bg-red-500 text-white text-xs font-medium px-3 py-1 rounded-full">
+                  {product.stock === 1 ? "Última unidad" : `Quedan ${product.stock}`}
+                </div>
+              )}
+            </div>
+
+            {/* Stock Out Badge */}
             {product.stock === 0 && (
               <div className="absolute top-3 left-3 bg-graphite/90 text-ivory text-xs font-medium px-3 py-1 rounded-full">
                 Sin stock
@@ -112,6 +147,18 @@ export default function ProductCard({ product }: ProductCardProps) {
             >
               <Heart className={`h-4 w-4 ${isInWishlist ? "fill-current" : ""}`} />
             </button>
+
+            {/* Stock Status */}
+            {product.stock > 0 && product.stock <= 5 && !isLowStock && (
+              <div className="absolute bottom-3 left-3 bg-white/90 text-graphite text-xs font-medium px-3 py-1 rounded-full">
+                En stock • 24-48h
+              </div>
+            )}
+            {product.stock > 5 && (
+              <div className="absolute bottom-3 left-3 bg-green-500/90 text-white text-xs font-medium px-3 py-1 rounded-full">
+                Disponible • Envío inmediato
+              </div>
+            )}
           </div>
 
           {/* Content */}
@@ -138,9 +185,6 @@ export default function ProductCard({ product }: ProductCardProps) {
                 <p className="text-2xl font-bold text-champagne">
                   {product.price.toFixed(2)} €
                 </p>
-                {product.stock > 0 && product.stock <= 3 && (
-                  <p className="text-xs text-red-600 mt-1">Solo {product.stock} disponibles</p>
-                )}
               </div>
 
               <button
