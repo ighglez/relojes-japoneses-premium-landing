@@ -7,7 +7,6 @@ const nextConfig: NextConfig = {
       { protocol: "http", hostname: "**" }
     ],
   },
-  // ❌ elimina outputFileTracingRoot
   typescript: { ignoreBuildErrors: true },
   eslint: { ignoreDuringBuilds: true },
   reactStrictMode: true,
@@ -15,3 +14,4 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+// Orchids restart: 1762618772270
