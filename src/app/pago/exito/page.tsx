@@ -1,255 +1,147 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import Navigation from "@/components/Navigation";
-import Footer from "@/components/Footer";
 import { motion } from "framer-motion";
-import { CheckCircle2, Package, Mail, Download, ArrowRight } from "lucide-react";
+import { CheckCircle2, ArrowRight, Package, Mail } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
-function PagoExitoContent() {
+export default function PaymentSuccessPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const orderId = searchParams.get("orderId");
-  const [order, setOrder] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const orderId = searchParams.get("orden");
+  const [orderDetails, setOrderDetails] = useState<any>(null);
 
   useEffect(() => {
     if (orderId) {
-      fetchOrder();
-    } else {
-      setLoading(false);
+      // Fetch order details
+      const token = localStorage.getItem("bearer_token");
+      fetch(`/api/orders/my-orders`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          const order = data.orders?.find((o: any) => o.orderNumber === orderId);
+          if (order) setOrderDetails(order);
+        })
+        .catch(() => {});
     }
   }, [orderId]);
 
-  const fetchOrder = async () => {
-    try {
-      const token = localStorage.getItem("bearer_token");
-      const headers: any = {};
-      if (token) headers.Authorization = `Bearer ${token}`;
-
-      const response = await fetch(`/api/orders?orderNumber=${orderId}`, {
-        headers,
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setOrder(data);
-      }
-    } catch (error) {
-      console.error("Error fetching order:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+    <div className="min-h-screen bg-ivory flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-center"
+        className="max-w-2xl w-full"
       >
-        {/* Success Icon */}
-        <div className="inline-flex items-center justify-center w-24 h-24 bg-green-100 rounded-full mb-6">
-          <CheckCircle2 className="h-12 w-12 text-green-600" />
-        </div>
-
-        {/* Success Message */}
-        <h1 className="font-heading text-4xl md:text-5xl font-medium text-graphite mb-4">
-          ¡Pago completado con éxito!
-        </h1>
-        <p className="text-lg text-graphite/70 mb-8">
-          Tu pedido ha sido procesado correctamente. Recibirás una confirmación por correo electrónico.
-        </p>
-
-        {/* Order Details */}
-        {loading ? (
-          <div className="bg-white rounded-lg border border-pearl p-8 mb-8">
-            <p className="text-graphite/60">Cargando detalles del pedido...</p>
+        <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 border border-pearl">
+          {/* Success Icon */}
+          <div className="flex justify-center mb-6">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+              className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center"
+            >
+              <CheckCircle2 className="h-12 w-12 text-green-600" />
+            </motion.div>
           </div>
-        ) : order ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-white rounded-lg border border-pearl p-8 mb-8 text-left"
-          >
-            <div className="flex items-center justify-between mb-6 pb-6 border-b border-pearl">
+
+          {/* Heading */}
+          <h1 className="text-3xl md:text-4xl font-heading font-medium text-graphite text-center mb-4">
+            ¡Pago completado con éxito!
+          </h1>
+          
+          {orderId && (
+            <p className="text-center text-graphite/60 mb-8">
+              Nº de pedido: <span className="font-mono font-medium text-champagne">{orderId}</span>
+            </p>
+          )}
+
+          {/* Success Message */}
+          <div className="bg-pearl/50 rounded-lg p-6 mb-8">
+            <div className="flex items-start gap-3 mb-4">
+              <Mail className="h-5 w-5 text-champagne mt-0.5" />
               <div>
-                <p className="text-sm text-graphite/60 mb-1">Número de pedido</p>
-                <p className="text-xl font-bold text-champagne">{order.orderNumber}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-graphite/60 mb-1">Total pagado</p>
-                <p className="text-2xl font-bold text-graphite">{order.total.toFixed(2)} €</p>
+                <h2 className="font-medium text-graphite mb-1">
+                  Confirmación enviada
+                </h2>
+                <p className="text-sm text-graphite/70">
+                  Recibirás un email con los detalles de tu pedido en los próximos minutos.
+                </p>
               </div>
             </div>
 
-            {/* Order Items */}
-            {order.items && order.items.length > 0 && (
-              <div className="mb-6">
-                <h3 className="font-heading text-lg font-medium text-graphite mb-4">
-                  Productos
-                </h3>
-                <div className="space-y-3">
-                  {order.items.map((item: any) => (
-                    <div key={item.id} className="flex justify-between items-center py-2">
-                      <div>
-                        <p className="font-medium text-graphite">{item.productName}</p>
-                        <p className="text-sm text-graphite/60">
-                          {item.productReference} × {item.quantity}
-                        </p>
-                      </div>
-                      <p className="font-medium text-graphite">
-                        {item.subtotal.toFixed(2)} €
-                      </p>
-                    </div>
-                  ))}
+            <div className="flex items-start gap-3">
+              <Package className="h-5 w-5 text-champagne mt-0.5" />
+              <div>
+                <h2 className="font-medium text-graphite mb-1">
+                  Envío asegurado • 24-48h
+                </h2>
+                <p className="text-sm text-graphite/70">
+                  Tu pedido será preparado y enviado con número de seguimiento.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Order Summary */}
+          {orderDetails && (
+            <div className="border border-pearl rounded-lg p-6 mb-8">
+              <h3 className="font-medium text-graphite mb-4">Resumen del pedido</h3>
+              <div className="space-y-2">
+                {orderDetails.items?.map((item: any, index: number) => (
+                  <div key={index} className="flex justify-between text-sm">
+                    <span className="text-graphite/70">
+                      {item.productName} × {item.quantity}
+                    </span>
+                    <span className="font-medium text-graphite">
+                      {(item.unitPrice * item.quantity).toFixed(2)} €
+                    </span>
+                  </div>
+                ))}
+                <div className="border-t border-pearl pt-2 mt-2">
+                  <div className="flex justify-between font-medium">
+                    <span className="text-graphite">Total pagado</span>
+                    <span className="text-champagne text-lg">
+                      {orderDetails.total.toFixed(2)} €
+                    </span>
+                  </div>
                 </div>
               </div>
-            )}
-
-            {/* Price Breakdown */}
-            <div className="space-y-2 mb-6 pb-6 border-b border-pearl">
-              <div className="flex justify-between text-sm">
-                <span className="text-graphite/70">Subtotal</span>
-                <span className="font-medium text-graphite">
-                  {order.subtotal.toFixed(2)} €
-                </span>
-              </div>
-              {order.discountAmount > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-green-600">
-                    Descuento {order.couponCode ? `(${order.couponCode})` : ''}
-                  </span>
-                  <span className="font-medium text-green-600">
-                    -{order.discountAmount.toFixed(2)} €
-                  </span>
-                </div>
-              )}
             </div>
+          )}
 
-            {/* Shipping Info */}
-            <div>
-              <h3 className="font-heading text-lg font-medium text-graphite mb-3">
-                Información de envío
-              </h3>
-              <div className="bg-pearl/30 rounded-lg p-4 space-y-1 text-sm">
-                <p className="font-medium text-graphite">{order.shippingName}</p>
-                <p className="text-graphite/70">{order.shippingAddress}</p>
-                <p className="text-graphite/70">
-                  {order.shippingPostalCode} {order.shippingCity}
-                </p>
-                <p className="text-graphite/70">{order.shippingCountry}</p>
-                <p className="text-graphite/70 mt-2">{order.shippingEmail}</p>
-                <p className="text-graphite/70">{order.shippingPhone}</p>
-              </div>
-            </div>
-          </motion.div>
-        ) : (
-          <div className="bg-white rounded-lg border border-pearl p-8 mb-8">
-            <p className="text-graphite/60">No se encontraron detalles del pedido</p>
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Link
+              href="/mi-cuenta"
+              className="flex-1 px-6 py-3 bg-pearl text-graphite rounded-lg hover:bg-pearl/80 transition-all text-center font-medium"
+            >
+              Ver mis pedidos
+            </Link>
+            <Link
+              href="/productos"
+              className="flex-1 px-6 py-3 bg-champagne text-ivory rounded-lg hover:bg-opacity-90 transition-all text-center font-medium flex items-center justify-center gap-2"
+            >
+              Volver a la tienda
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
-        )}
 
-        {/* Next Steps */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="bg-champagne/10 rounded-lg border border-champagne/30 p-8 mb-8"
-        >
-          <h2 className="font-heading text-2xl font-medium text-graphite mb-6">
-            ¿Qué sigue?
-          </h2>
-          <div className="grid md:grid-cols-3 gap-6 text-left">
-            <div className="flex gap-4">
-              <div className="flex-shrink-0 w-12 h-12 bg-champagne rounded-lg flex items-center justify-center">
-                <Mail className="h-6 w-6 text-ivory" />
-              </div>
-              <div>
-                <h3 className="font-medium text-graphite mb-1">1. Confirmación por email</h3>
-                <p className="text-sm text-graphite/70">
-                  Recibirás un email con todos los detalles
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <div className="flex-shrink-0 w-12 h-12 bg-champagne rounded-lg flex items-center justify-center">
-                <Package className="h-6 w-6 text-ivory" />
-              </div>
-              <div>
-                <h3 className="font-medium text-graphite mb-1">2. Preparación del envío</h3>
-                <p className="text-sm text-graphite/70">
-                  Procesaremos tu pedido en 24-48h
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <div className="flex-shrink-0 w-12 h-12 bg-champagne rounded-lg flex items-center justify-center">
-                <Download className="h-6 w-6 text-ivory" />
-              </div>
-              <div>
-                <h3 className="font-medium text-graphite mb-1">3. Seguimiento</h3>
-                <p className="text-sm text-graphite/70">
-                  Te enviaremos el número de seguimiento
-                </p>
-              </div>
-            </div>
+          {/* Additional Info */}
+          <div className="mt-8 pt-6 border-t border-pearl">
+            <p className="text-sm text-graphite/60 text-center">
+              Si tienes alguna pregunta sobre tu pedido, no dudes en{" "}
+              <Link href="/#contacto" className="text-champagne hover:underline">
+                contactarnos
+              </Link>
+              .
+            </p>
           </div>
-        </motion.div>
-
-        {/* Trust Footer */}
-        <div className="bg-white rounded-lg border border-pearl p-6 mb-8">
-          <p className="text-sm text-graphite/70">
-            <strong className="text-champagne">Envío asegurado</strong> • <strong className="text-champagne">Autenticidad garantizada</strong> • <strong className="text-champagne">Factura emitida</strong>
-          </p>
-        </div>
-
-        {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link
-            href="/productos"
-            className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-champagne text-ivory font-medium rounded-lg hover:bg-opacity-90 transition-all"
-          >
-            Volver a la tienda
-            <ArrowRight className="h-5 w-5" />
-          </Link>
-          <Link
-            href="/mi-cuenta"
-            className="inline-flex items-center justify-center gap-2 px-8 py-3 border-2 border-pearl text-graphite font-medium rounded-lg hover:bg-pearl transition-all"
-          >
-            Ver mis pedidos
-          </Link>
         </div>
       </motion.div>
-    </main>
-  );
-}
-
-export default function PagoExitoPage() {
-  return (
-    <div className="min-h-screen bg-ivory">
-      <Navigation />
-      <Suspense fallback={
-        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center w-24 h-24 bg-green-100 rounded-full mb-6">
-              <CheckCircle2 className="h-12 w-12 text-green-600" />
-            </div>
-            <h1 className="font-heading text-4xl md:text-5xl font-medium text-graphite mb-4">
-              Cargando...
-            </h1>
-          </div>
-        </main>
-      }>
-        <PagoExitoContent />
-      </Suspense>
-      <Footer />
     </div>
   );
 }
