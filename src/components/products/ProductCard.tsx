@@ -4,9 +4,10 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { Heart, Sparkles, Award } from "lucide-react";
-import { useCart } from "@/contexts/CartContext";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { trackAddToCart } from "@/lib/analytics";
 
 interface ProductCardProps {
   product: {
@@ -26,8 +27,9 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
-  const { addItem } = useCart();
+  const router = useRouter();
   const [isAdding, setIsAdding] = useState(false);
+  const [isBuying, setIsBuying] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
 
   // Parse images
@@ -45,34 +47,159 @@ export default function ProductCard({ product }: ProductCardProps) {
     }
   }
 
+  // Check if product is in wishlist on mount
+  useEffect(() => {
+    const checkWishlist = async () => {
+      const token = localStorage.getItem("bearer_token");
+      if (!token) return;
+
+      try {
+        const response = await fetch("/api/wishlist/get", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (response.ok) {
+          const wishlist = await response.json();
+          const inWishlist = wishlist.some((item: any) => item.productId === product.id);
+          setIsInWishlist(inWishlist);
+        }
+      } catch (error) {
+        // Silently fail
+      }
+    };
+
+    checkWishlist();
+  }, [product.id]);
+
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    
     if (product.stock === 0) {
       toast.error("Producto sin stock");
       return;
     }
+
     setIsAdding(true);
     try {
-      await addItem(product);
+      const token = localStorage.getItem("bearer_token");
+      let sessionId = localStorage.getItem("guest_session_id");
+
+      // Generate guest session ID if not exists
+      if (!token && !sessionId) {
+        sessionId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        localStorage.setItem("guest_session_id", sessionId);
+      }
+
+      const headers: any = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch("/api/cart/add", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          productId: product.id,
+          quantity: 1,
+          sessionId: !token ? sessionId : undefined,
+        }),
+      });
+
+      if (response.ok) {
+        toast.success("Añadido al carrito");
+        
+        // Track analytics
+        trackAddToCart({
+          id: product.id,
+          name: product.name,
+          brand: product.brand,
+          reference: product.reference,
+          price: product.price,
+          quantity: 1,
+        });
+        
+        // Trigger cart count refresh
+        window.dispatchEvent(new Event("cartUpdated"));
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Error al añadir al carrito");
+      }
+    } catch (error) {
+      toast.error("Error al añadir al carrito");
     } finally {
       setIsAdding(false);
+    }
+  };
+
+  const handleBuyNow = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (product.stock === 0) {
+      toast.error("Producto sin stock");
+      return;
+    }
+
+    setIsBuying(true);
+    try {
+      const token = localStorage.getItem("bearer_token");
+      let sessionId = localStorage.getItem("guest_session_id");
+
+      // Generate guest session ID if not exists
+      if (!token && !sessionId) {
+        sessionId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        localStorage.setItem("guest_session_id", sessionId);
+      }
+
+      const headers: any = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch("/api/cart/add", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          productId: product.id,
+          quantity: 1,
+          sessionId: !token ? sessionId : undefined,
+        }),
+      });
+
+      if (response.ok) {
+        // Track analytics
+        trackAddToCart({
+          id: product.id,
+          name: product.name,
+          brand: product.brand,
+          reference: product.reference,
+          price: product.price,
+          quantity: 1,
+        });
+        
+        // Redirect to cart
+        router.push("/carrito");
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Error al procesar la compra");
+      }
+    } catch (error) {
+      toast.error("Error al procesar la compra");
+    } finally {
+      setIsBuying(false);
     }
   };
 
   const handleToggleWishlist = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    
     const token = localStorage.getItem("bearer_token");
     if (!token) {
-      toast.error("Debes iniciar sesión para usar la lista de deseos");
+      toast.error("Debes iniciar sesión para usar favoritos");
       return;
     }
 
     try {
-      const method = isInWishlist ? "DELETE" : "POST";
-      const response = await fetch("/api/wishlist", {
-        method,
+      const response = await fetch("/api/wishlist/toggle", {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -81,8 +208,14 @@ export default function ProductCard({ product }: ProductCardProps) {
       });
 
       if (response.ok) {
-        setIsInWishlist(!isInWishlist);
-        toast.success(isInWishlist ? "Eliminado de favoritos" : "Añadido a favoritos");
+        const data = await response.json();
+        setIsInWishlist(data.inWishlist);
+        toast.success(data.message);
+        
+        // Trigger wishlist count refresh
+        window.dispatchEvent(new Event("wishlistUpdated"));
+      } else {
+        toast.error("Error al actualizar favoritos");
       }
     } catch (error) {
       toast.error("Error al actualizar favoritos");
@@ -192,8 +325,9 @@ export default function ProductCard({ product }: ProductCardProps) {
             </p>
           </div>
 
-          {/* Action Buttons - NEW STRATEGY */}
+          {/* Action Buttons - Estrategia según specs */}
           <div className="space-y-2">
+            {/* Primary: Añadir al carrito (champagne, full width) */}
             <button
               onClick={handleAddToCart}
               disabled={isAdding || product.stock === 0}
@@ -203,9 +337,20 @@ export default function ProductCard({ product }: ProductCardProps) {
               {product.stock === 0 ? "Sin stock" : isAdding ? "Añadiendo..." : "Añadir al carrito"}
             </button>
             
+            {/* Secondary: Comprar ahora (graphite) */}
+            <button
+              onClick={handleBuyNow}
+              disabled={isBuying || product.stock === 0}
+              className="w-full px-4 py-2.5 bg-graphite text-ivory rounded-lg hover:bg-opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+              aria-label="Comprar ahora"
+            >
+              {isBuying ? "Procesando..." : "Comprar ahora"}
+            </button>
+            
+            {/* Tertiary: Ver detalles (text link, graphite with underline) */}
             <Link 
               href={`/productos/${product.slug}`}
-              className="block w-full text-center text-sm text-graphite hover:text-champagne transition-colors underline-offset-2 hover:underline"
+              className="block w-full text-center text-sm text-graphite hover:text-champagne transition-colors underline-offset-2 hover:underline py-1"
             >
               Ver detalles
             </Link>

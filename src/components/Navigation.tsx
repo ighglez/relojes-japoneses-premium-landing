@@ -23,64 +23,72 @@ export default function Navigation() {
   ];
 
   // Fetch cart count
-  useEffect(() => {
-    const fetchCartCount = async () => {
-      try {
-        const token = localStorage.getItem("bearer_token");
-        const sessionId = localStorage.getItem("guest_session_id");
+  const fetchCartCount = async () => {
+    try {
+      const token = localStorage.getItem("bearer_token");
+      const sessionId = localStorage.getItem("guest_session_id");
 
-        const headers: any = {};
-        if (token) headers.Authorization = `Bearer ${token}`;
+      const headers: any = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
 
-        const url = sessionId ? `/api/cart/get?sessionId=${sessionId}` : `/api/cart/get`;
-        const response = await fetch(url, { headers });
+      const url = sessionId ? `/api/cart/get?sessionId=${sessionId}` : `/api/cart/get`;
+      const response = await fetch(url, { headers });
 
-        if (response.ok) {
-          const data = await response.json();
-          setCartCount(data.itemCount || 0);
-        }
-      } catch (error) {
-        console.error("Error fetching cart count:", error);
+      if (response.ok) {
+        const data = await response.json();
+        setCartCount(data.itemCount || 0);
       }
-    };
-
-    fetchCartCount();
-    
-    // Refresh cart count every 5 seconds
-    const interval = setInterval(fetchCartCount, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    } catch (error) {
+      console.error("Error fetching cart count:", error);
+    }
+  };
 
   // Fetch wishlist count (only for authenticated users)
-  useEffect(() => {
+  const fetchWishlistCount = async () => {
     if (!session?.user) {
       setWishlistCount(0);
       return;
     }
 
-    const fetchWishlistCount = async () => {
-      try {
-        const token = localStorage.getItem("bearer_token");
-        if (!token) return;
+    try {
+      const token = localStorage.getItem("bearer_token");
+      if (!token) return;
 
-        const response = await fetch("/api/wishlist/get", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+      const response = await fetch("/api/wishlist/get", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-        if (response.ok) {
-          const data = await response.json();
-          setWishlistCount(data.length || 0);
-        }
-      } catch (error) {
-        console.error("Error fetching wishlist count:", error);
+      if (response.ok) {
+        const data = await response.json();
+        setWishlistCount(data.length || 0);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching wishlist count:", error);
+    }
+  };
 
+  useEffect(() => {
+    fetchCartCount();
     fetchWishlistCount();
     
-    // Refresh wishlist count every 10 seconds
-    const interval = setInterval(fetchWishlistCount, 10000);
-    return () => clearInterval(interval);
+    // Listen for cart and wishlist updates
+    const handleCartUpdate = () => fetchCartCount();
+    const handleWishlistUpdate = () => fetchWishlistCount();
+    
+    window.addEventListener("cartUpdated", handleCartUpdate);
+    window.addEventListener("wishlistUpdated", handleWishlistUpdate);
+    
+    // Also refresh periodically
+    const interval = setInterval(() => {
+      fetchCartCount();
+      fetchWishlistCount();
+    }, 30000); // Every 30 seconds
+    
+    return () => {
+      window.removeEventListener("cartUpdated", handleCartUpdate);
+      window.removeEventListener("wishlistUpdated", handleWishlistUpdate);
+      clearInterval(interval);
+    };
   }, [session]);
 
   const isActive = (href: string) => {
