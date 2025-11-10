@@ -122,7 +122,7 @@ export default function PagarPage() {
     if (!shippingForm.name.trim()) errors.name = "Nombre es requerido";
     if (!shippingForm.email.trim()) errors.email = "Email es requerido";
     else if (!/\S+@\S+\.\S+/.test(shippingForm.email)) errors.email = "Email inválido";
-    if (!shippingForm.phone.trim()) errors.phone = "Teléfono es requerido";
+    // Phone is optional - no validation needed
     if (!shippingForm.address.trim()) errors.address = "Dirección es requerida";
     if (!shippingForm.city.trim()) errors.city = "Ciudad es requerida";
     if (!shippingForm.postalCode.trim()) errors.postalCode = "Código postal es requerido";
@@ -441,23 +441,17 @@ export default function PagarPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-graphite mb-2">
-                    Teléfono *
+                    Teléfono <span className="text-graphite/50">(opcional)</span>
                   </label>
                   <input
                     type="tel"
                     value={shippingForm.phone}
                     onChange={(e) => {
                       setShippingForm({ ...shippingForm, phone: e.target.value });
-                      setFormErrors({ ...formErrors, phone: "" });
                     }}
-                    className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-champagne/50 ${
-                      formErrors.phone ? "border-red-500" : "border-pearl"
-                    }`}
+                    className="w-full px-4 py-2.5 border border-pearl rounded-lg focus:outline-none focus:ring-2 focus:ring-champagne/50"
                     placeholder="+34 600 123 456"
                   />
-                  {formErrors.phone && (
-                    <p className="text-xs text-red-500 mt-1">{formErrors.phone}</p>
-                  )}
                 </div>
 
                 <div>
