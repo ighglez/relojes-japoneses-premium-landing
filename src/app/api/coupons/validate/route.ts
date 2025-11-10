@@ -1,32 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { coupons, couponRedemptions } from '@/db/schema';
-import { eq, and, or, lt, lte, gte } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
+    // Optional authentication
+    let userId: string | null = null;
+    try {
+      const session = await auth.api.getSession({
+        headers: await headers()
+      });
+      if (session?.user?.id) {
+        userId = session.user.id;
+      }
+    } catch (error) {
+      // Not authenticated, continue as guest
+    }
+
+    // Parse request body
     const body = await request.json();
-    const { code, cartTotal, userId, email } = body;
+    const { code, subtotal, email } = body;
 
     // Validate required fields
     if (!code || typeof code !== 'string') {
-      return NextResponse.json({
-        error: 'Coupon code is required',
-        code: 'MISSING_COUPON_CODE'
-      }, { status: 400 });
+      return NextResponse.json(
+        { error: 'El código del cupón es requerido' },
+        { status: 400 }
+      );
     }
 
-    if (!cartTotal || typeof cartTotal !== 'number' || cartTotal <= 0) {
-      return NextResponse.json({
-        error: 'Valid cart total is required',
-        code: 'INVALID_CART_TOTAL'
-      }, { status: 400 });
+    if (!subtotal || typeof subtotal !== 'number' || subtotal <= 0) {
+      return NextResponse.json(
+        { error: 'El subtotal del carrito es requerido y debe ser mayor a 0' },
+        { status: 400 }
+      );
     }
 
-    // Convert code to uppercase for consistency
+    // Normalize code to uppercase
     const normalizedCode = code.trim().toUpperCase();
 
-    // Find coupon by code (case-insensitive)
+    // Find coupon by code
     const couponResult = await db.select()
       .from(coupons)
       .where(eq(coupons.code, normalizedCode))
@@ -35,9 +54,8 @@ export async function POST(request: NextRequest) {
     if (couponResult.length === 0) {
       return NextResponse.json({
         valid: false,
-        error: 'Coupon code not found',
-        code: 'COUPON_NOT_FOUND'
-      }, { status: 400 });
+        message: 'Código de cupón no válido'
+      }, { status: 200 });
     }
 
     const coupon = couponResult[0];
@@ -46,94 +64,88 @@ export async function POST(request: NextRequest) {
     if (!coupon.active) {
       return NextResponse.json({
         valid: false,
-        error: 'This coupon is no longer active',
-        code: 'COUPON_INACTIVE'
-      }, { status: 400 });
+        message: 'Este cupón no está activo'
+      }, { status: 200 });
     }
 
-    // Check if coupon has started
+    // Check start and end dates
     const now = new Date().toISOString();
+    
     if (coupon.startDate > now) {
       return NextResponse.json({
         valid: false,
-        error: 'This coupon is not yet available',
-        code: 'COUPON_NOT_STARTED'
-      }, { status: 400 });
+        message: 'Este cupón aún no está disponible'
+      }, { status: 200 });
     }
 
-    // Check if coupon has expired
     if (coupon.endDate && coupon.endDate < now) {
       return NextResponse.json({
         valid: false,
-        error: 'This coupon has expired',
-        code: 'COUPON_EXPIRED'
-      }, { status: 400 });
+        message: 'Este cupón ha expirado'
+      }, { status: 200 });
     }
 
     // Check minimum purchase requirement
-    if (coupon.minPurchase !== null && cartTotal < coupon.minPurchase) {
+    if (coupon.minPurchase && subtotal < coupon.minPurchase) {
       return NextResponse.json({
         valid: false,
-        error: `Minimum purchase of ${coupon.minPurchase.toFixed(2)} required to use this coupon`,
-        code: 'MIN_PURCHASE_NOT_MET'
-      }, { status: 400 });
+        message: `Compra mínima de €${coupon.minPurchase.toFixed(2)} requerida`
+      }, { status: 200 });
     }
 
-    // Check maximum uses limit
+    // Check max uses
     if (coupon.maxUses !== null && coupon.currentUses >= coupon.maxUses) {
       return NextResponse.json({
         valid: false,
-        error: 'This coupon has reached its maximum number of uses',
-        code: 'MAX_USES_EXCEEDED'
-      }, { status: 400 });
+        message: 'Este cupón ha alcanzado su límite de usos'
+      }, { status: 200 });
     }
 
     // Check one-time-per-user restriction
-    if (coupon.oneTimePerUser) {
-      if (userId || email) {
-        const conditions = [];
-        
-        if (userId) {
-          conditions.push(eq(couponRedemptions.userId, userId));
-        }
-        
-        if (email) {
-          conditions.push(eq(couponRedemptions.email, email.toLowerCase()));
-        }
+    if (coupon.oneTimePerUser && (userId || email)) {
+      const conditions = [eq(couponRedemptions.couponId, coupon.id)];
+      
+      if (userId && email) {
+        conditions.push(
+          and(
+            eq(couponRedemptions.userId, userId),
+            eq(couponRedemptions.email, email.toLowerCase())
+          ) as any
+        );
+      } else if (userId) {
+        conditions.push(eq(couponRedemptions.userId, userId));
+      } else if (email) {
+        conditions.push(eq(couponRedemptions.email, email.toLowerCase()));
+      }
 
-        const redemptionCheck = await db.select()
-          .from(couponRedemptions)
-          .where(
-            and(
-              eq(couponRedemptions.couponId, coupon.id),
-              or(...conditions)
-            )
-          )
-          .limit(1);
+      const redemptionCheck = await db.select()
+        .from(couponRedemptions)
+        .where(and(...conditions))
+        .limit(1);
 
-        if (redemptionCheck.length > 0) {
-          return NextResponse.json({
-            valid: false,
-            error: 'You have already used this coupon',
-            code: 'ALREADY_USED'
-          }, { status: 400 });
-        }
+      if (redemptionCheck.length > 0) {
+        return NextResponse.json({
+          valid: false,
+          message: 'Ya has utilizado este cupón'
+        }, { status: 200 });
       }
     }
 
-    // Calculate discount amount based on coupon type
+    // Calculate discount
     let discountAmount = 0;
     
     if (coupon.type === 'percentage') {
-      discountAmount = cartTotal * (coupon.value / 100);
+      discountAmount = subtotal * (coupon.value / 100);
     } else if (coupon.type === 'fixed') {
-      discountAmount = Math.min(coupon.value, cartTotal);
+      discountAmount = Math.min(coupon.value, subtotal);
     }
 
-    // Round to 2 decimal places
+    // Round to 2 decimals
     discountAmount = Math.round(discountAmount * 100) / 100;
 
-    // Return successful validation
+    // Determine free shipping
+    const freeShipping = normalizedCode === 'WELCOME5';
+
     return NextResponse.json({
       valid: true,
       coupon: {
@@ -143,13 +155,16 @@ export async function POST(request: NextRequest) {
         value: coupon.value,
         discountAmount
       },
-      message: 'Coupon applied successfully'
+      discountAmount,
+      freeShipping,
+      message: 'Cupón aplicado correctamente'
     }, { status: 200 });
 
   } catch (error) {
-    console.error('POST error:', error);
-    return NextResponse.json({
-      error: 'Internal server error: ' + (error instanceof Error ? error.message : 'Unknown error')
-    }, { status: 500 });
+    console.error('POST /api/coupons/validate error:', error);
+    return NextResponse.json(
+      { error: 'Error interno del servidor: ' + (error as Error).message },
+      { status: 500 }
+    );
   }
 }

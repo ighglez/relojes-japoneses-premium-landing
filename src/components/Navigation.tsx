@@ -4,16 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { motion } from "framer-motion";
-import { useState } from "react";
-import { Menu, X } from "lucide-react";
-import CartButton from "@/components/cart/CartButton";
-import CartDrawer from "@/components/cart/CartDrawer";
+import { useState, useEffect } from "react";
+import { Menu, X, ShoppingCart, Heart } from "lucide-react";
 
 export default function Navigation() {
   const { data: session } = useSession();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [cartOpen, setCartOpen] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
+  const [wishlistCount, setWishlistCount] = useState(0);
 
   const navLinks = [
     { href: "/", label: "Inicio" },
@@ -22,6 +21,67 @@ export default function Navigation() {
     { href: "/#resenas", label: "Reseñas" },
     { href: "/#contacto", label: "Contacto" },
   ];
+
+  // Fetch cart count
+  useEffect(() => {
+    const fetchCartCount = async () => {
+      try {
+        const token = localStorage.getItem("bearer_token");
+        const sessionId = localStorage.getItem("guest_session_id");
+
+        const headers: any = {};
+        if (token) headers.Authorization = `Bearer ${token}`;
+
+        const url = sessionId ? `/api/cart/get?sessionId=${sessionId}` : `/api/cart/get`;
+        const response = await fetch(url, { headers });
+
+        if (response.ok) {
+          const data = await response.json();
+          setCartCount(data.itemCount || 0);
+        }
+      } catch (error) {
+        console.error("Error fetching cart count:", error);
+      }
+    };
+
+    fetchCartCount();
+    
+    // Refresh cart count every 5 seconds
+    const interval = setInterval(fetchCartCount, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch wishlist count (only for authenticated users)
+  useEffect(() => {
+    if (!session?.user) {
+      setWishlistCount(0);
+      return;
+    }
+
+    const fetchWishlistCount = async () => {
+      try {
+        const token = localStorage.getItem("bearer_token");
+        if (!token) return;
+
+        const response = await fetch("/api/wishlist/get", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setWishlistCount(data.length || 0);
+        }
+      } catch (error) {
+        console.error("Error fetching wishlist count:", error);
+      }
+    };
+
+    fetchWishlistCount();
+    
+    // Refresh wishlist count every 10 seconds
+    const interval = setInterval(fetchWishlistCount, 10000);
+    return () => clearInterval(interval);
+  }, [session]);
 
   const isActive = (href: string) => {
     if (href === "/") {
@@ -80,9 +140,37 @@ export default function Navigation() {
               ))}
             </div>
 
-            {/* Auth Links & Cart */}
+            {/* Auth Links, Wishlist & Cart */}
             <div className="hidden md:flex items-center space-x-4">
-              <CartButton onClick={() => setCartOpen(true)} />
+              {/* Cart Button */}
+              <Link
+                href="/carrito"
+                className="relative p-2 hover:bg-pearl rounded-lg transition-colors"
+                aria-label="Carrito"
+              >
+                <ShoppingCart className="h-5 w-5 text-graphite" />
+                {cartCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-champagne text-ivory text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                    {cartCount}
+                  </span>
+                )}
+              </Link>
+
+              {/* Wishlist Button (only for authenticated users) */}
+              {session?.user && (
+                <Link
+                  href="/favoritos"
+                  className="relative p-2 hover:bg-pearl rounded-lg transition-colors"
+                  aria-label="Favoritos"
+                >
+                  <Heart className="h-5 w-5 text-graphite" />
+                  {wishlistCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                      {wishlistCount}
+                    </span>
+                  )}
+                </Link>
+              )}
               
               {session?.user ? (
                 <Link
@@ -122,7 +210,36 @@ export default function Navigation() {
 
             {/* Mobile menu button */}
             <div className="flex md:hidden items-center gap-2">
-              <CartButton onClick={() => setCartOpen(true)} />
+              {/* Mobile Cart Button */}
+              <Link
+                href="/carrito"
+                className="relative p-2"
+                aria-label="Carrito"
+              >
+                <ShoppingCart className="h-5 w-5 text-graphite" />
+                {cartCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-champagne text-ivory text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                    {cartCount}
+                  </span>
+                )}
+              </Link>
+
+              {/* Mobile Wishlist Button */}
+              {session?.user && (
+                <Link
+                  href="/favoritos"
+                  className="relative p-2"
+                  aria-label="Favoritos"
+                >
+                  <Heart className="h-5 w-5 text-graphite" />
+                  {wishlistCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                      {wishlistCount}
+                    </span>
+                  )}
+                </Link>
+              )}
+
               <button
                 className="p-2"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -207,9 +324,6 @@ export default function Navigation() {
           </motion.div>
         )}
       </nav>
-
-      {/* Cart Drawer */}
-      <CartDrawer isOpen={cartOpen} onClose={() => setCartOpen(false)} />
     </>
   );
 }

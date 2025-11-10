@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { orders, orderItems, products, coupons, couponRedemptions } from '@/db/schema';
+import { orders, orderItems, products, coupons, couponRedemptions, cartItems } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const PAYPAL_API = process.env.PAYPAL_MODE === 'live' 
   ? 'https://api-m.paypal.com' 
@@ -12,7 +17,7 @@ async function getPayPalAccessToken() {
   const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
-    throw new Error('PayPal credentials not configured');
+    throw new Error('Credenciales de PayPal no configuradas');
   }
 
   const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
@@ -27,56 +32,53 @@ async function getPayPalAccessToken() {
   });
 
   if (!response.ok) {
-    throw new Error('Failed to get PayPal access token');
+    throw new Error('Error al obtener token de acceso de PayPal');
   }
 
   const data = await response.json();
   return data.access_token;
 }
 
-async function generateOrderNumber(): Promise<string> {
-  const year = new Date().getFullYear();
-  const timestamp = Date.now().toString().slice(-8);
-  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `IW-${year}-${timestamp}${random}`;
-}
-
 export async function POST(request: NextRequest) {
   try {
+    // Optional authentication
+    let userId: string | null = null;
+    try {
+      const session = await auth.api.getSession({
+        headers: await headers()
+      });
+      if (session?.user?.id) {
+        userId = session.user.id;
+      }
+    } catch (error) {
+      // Not authenticated, guest checkout
+    }
+
     const body = await request.json();
     const {
       paypalOrderId,
       items,
       subtotal,
-      discountAmount = 0,
+      discountAmount,
+      shippingCost,
       total,
       couponCode,
       shippingInfo,
+      sessionId
     } = body;
 
     if (!paypalOrderId) {
       return NextResponse.json(
-        { error: 'PayPal order ID is required' },
+        { error: 'ID de orden de PayPal es requerido' },
         { status: 400 }
       );
     }
 
-    // Get user info from token
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    let userId: string | null = null;
-
-    if (token) {
-      try {
-        const sessionResponse = await fetch(`${process.env.NEXTAUTH_URL}/api/auth/get-session`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (sessionResponse.ok) {
-          const sessionData = await sessionResponse.json();
-          userId = sessionData.session?.userId || null;
-        }
-      } catch (error) {
-        console.log('No user session found, proceeding as guest');
-      }
+    if (!shippingInfo || !shippingInfo.name || !shippingInfo.email) {
+      return NextResponse.json(
+        { error: 'Información de envío es requerida' },
+        { status: 400 }
+      );
     }
 
     // Capture PayPal order
@@ -95,33 +97,25 @@ export async function POST(request: NextRequest) {
 
     if (!captureResponse.ok) {
       const error = await captureResponse.json();
-      console.error('PayPal capture error:', error);
-      throw new Error('Failed to capture PayPal payment');
+      console.error('Error al capturar pago de PayPal:', error);
+      throw new Error('Error al capturar pago de PayPal');
     }
 
     const captureData = await captureResponse.json();
 
     if (captureData.status !== 'COMPLETED') {
-      throw new Error('PayPal payment not completed');
+      throw new Error('Pago de PayPal no completado');
     }
+
+    // Extract PayPal transaction ID
+    const paypalTransactionId = captureData.purchase_units?.[0]?.payments?.captures?.[0]?.id || paypalOrderId;
 
     // Generate order number
-    const orderNumber = await generateOrderNumber();
+    const year = new Date().getFullYear();
+    const randomFiveDigits = Math.floor(10000 + Math.random() * 90000);
+    const orderNumber = `IW-${year}-${randomFiveDigits}`;
+    
     const now = new Date().toISOString();
-
-    // Validate coupon if provided
-    let couponId: number | undefined;
-    if (couponCode) {
-      const couponResult = await db
-        .select()
-        .from(coupons)
-        .where(and(eq(coupons.code, couponCode.toUpperCase()), eq(coupons.active, true)))
-        .limit(1);
-
-      if (couponResult.length > 0) {
-        couponId = couponResult[0].id;
-      }
-    }
 
     // Create order in database
     const newOrder = await db
@@ -131,13 +125,13 @@ export async function POST(request: NextRequest) {
         userId: userId || null,
         guestEmail: !userId ? shippingInfo.email : null,
         guestName: !userId ? shippingInfo.name : null,
-        subtotal,
-        discountAmount,
+        subtotal: subtotal || 0,
+        discountAmount: discountAmount || 0,
         total,
         couponCode: couponCode || null,
         paymentMethod: 'paypal',
         paymentId: paypalOrderId,
-        status: 'paid',
+        status: 'completed',
         shippingName: shippingInfo.name,
         shippingEmail: shippingInfo.email,
         shippingPhone: shippingInfo.phone,
@@ -153,77 +147,88 @@ export async function POST(request: NextRequest) {
     const createdOrder = newOrder[0];
 
     // Create order items
-    const orderItemsData = items.map((item: any) => ({
-      orderId: createdOrder.id,
-      productId: item.productId,
-      productName: item.productName,
-      productReference: item.productReference,
-      unitPrice: item.unitPrice,
-      quantity: item.quantity,
-      subtotal: item.unitPrice * item.quantity,
-      createdAt: now,
-    }));
+    if (items && items.length > 0) {
+      const orderItemsData = items.map((item: any) => ({
+        orderId: createdOrder.id,
+        productId: item.productId,
+        productName: item.name || item.productName,
+        productReference: item.reference || item.productReference,
+        unitPrice: item.price || item.unitPrice,
+        quantity: item.quantity,
+        subtotal: (item.price || item.unitPrice) * item.quantity,
+        createdAt: now,
+      }));
 
-    await db.insert(orderItems).values(orderItemsData);
+      await db.insert(orderItems).values(orderItemsData);
 
-    // Update product stock
-    for (const item of items) {
-      const product = await db
-        .select()
-        .from(products)
-        .where(eq(products.id, item.productId))
-        .limit(1);
+      // Update product stock
+      for (const item of items) {
+        const product = await db
+          .select()
+          .from(products)
+          .where(eq(products.id, item.productId))
+          .limit(1);
 
-      if (product.length > 0) {
-        await db
-          .update(products)
-          .set({
-            stock: product[0].stock - item.quantity,
-            updatedAt: now,
-          })
-          .where(eq(products.id, item.productId));
+        if (product.length > 0) {
+          await db
+            .update(products)
+            .set({
+              stock: product[0].stock - item.quantity,
+              updatedAt: now,
+            })
+            .where(eq(products.id, item.productId));
+        }
       }
     }
 
     // Record coupon redemption
-    if (couponId) {
-      await db.insert(couponRedemptions).values({
-        couponId,
-        userId: userId || null,
-        email: shippingInfo.email,
-        orderId: createdOrder.id,
-        redeemedAt: now,
-      });
-
-      // Update coupon usage count
-      const currentCoupon = await db
+    if (couponCode) {
+      const couponResult = await db
         .select()
         .from(coupons)
-        .where(eq(coupons.id, couponId))
+        .where(eq(coupons.code, couponCode.toUpperCase()))
         .limit(1);
 
-      if (currentCoupon.length > 0) {
+      if (couponResult.length > 0) {
+        const coupon = couponResult[0];
+        
+        await db.insert(couponRedemptions).values({
+          couponId: coupon.id,
+          userId: userId || null,
+          email: shippingInfo.email,
+          orderId: createdOrder.id,
+          redeemedAt: now,
+        });
+
+        // Update coupon usage count
         await db
           .update(coupons)
           .set({
-            currentUses: currentCoupon[0].currentUses + 1,
+            currentUses: coupon.currentUses + 1,
             updatedAt: now,
           })
-          .where(eq(coupons.id, couponId));
+          .where(eq(coupons.id, coupon.id));
       }
+    }
+
+    // Clear cart
+    if (userId) {
+      await db.delete(cartItems).where(eq(cartItems.userId, userId));
+    } else if (sessionId) {
+      await db.delete(cartItems).where(eq(cartItems.sessionId, sessionId));
     }
 
     return NextResponse.json({
       success: true,
       orderId: createdOrder.id,
       orderNumber: createdOrder.orderNumber,
-      paypalOrderId: captureData.id,
+      paypalTransactionId
     });
 
   } catch (error) {
-    console.error('Capture PayPal order error:', error);
+    console.error('Error al capturar orden de PayPal:', error);
     return NextResponse.json(
-      { error: 'Failed to capture PayPal order: ' + (error as Error).message },
+      { error: 'Error al capturar orden de PayPal: ' + (error as Error).message },
       { status: 500 }
     );
   }
