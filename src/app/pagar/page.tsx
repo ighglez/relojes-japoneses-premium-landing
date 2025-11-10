@@ -19,11 +19,16 @@ interface CartItem {
   id: number;
   productId: number;
   quantity: number;
-  price: number;
-  name: string;
-  brand: string;
-  reference: string;
-  imageUrl: string | null;
+  product: {
+    id: number;
+    name: string;
+    brand: string;
+    reference: string;
+    price: number;
+    stock: number;
+    imageUrl: string | null;
+  };
+  subtotal: number;
 }
 
 interface Cart {
@@ -79,10 +84,10 @@ export default function PagarPage() {
       trackBeginCheckout(
         cart.items.map((item) => ({
           id: item.productId,
-          name: item.name,
-          brand: item.brand,
-          reference: item.reference,
-          price: item.price,
+          name: item.product.name,
+          brand: item.product.brand,
+          reference: item.product.reference,
+          price: item.product.price,
           quantity: item.quantity,
         })),
         total
@@ -209,9 +214,9 @@ export default function PagarPage() {
 
       const orderData = {
         items: cart.items.map((item) => ({
-          name: `${item.brand} ${item.name}`,
+          name: `${item.product.brand} ${item.product.name}`,
           quantity: item.quantity,
-          unitAmount: item.price.toFixed(2),
+          unitAmount: item.product.price.toFixed(2),
         })),
         shippingAmount: shippingCost.toFixed(2),
         totalAmount: total.toFixed(2),
@@ -255,9 +260,9 @@ export default function PagarPage() {
         paypalOrderId: data.orderID,
         items: cart.items.map((item) => ({
           productId: item.productId,
-          productName: `${item.brand} ${item.name}`,
-          productReference: item.reference,
-          unitPrice: item.price,
+          productName: `${item.product.brand} ${item.product.name}`,
+          productReference: item.product.reference,
+          unitPrice: item.product.price,
           quantity: item.quantity,
         })),
         subtotal: cart.subtotal,
@@ -286,10 +291,10 @@ export default function PagarPage() {
         result.orderNumber,
         cart.items.map((item) => ({
           id: item.productId,
-          name: item.name,
-          brand: item.brand,
-          reference: item.reference,
-          price: item.price,
+          name: item.product.name,
+          brand: item.product.brand,
+          reference: item.product.reference,
+          price: item.product.price,
           quantity: item.quantity,
         })),
         cart.subtotal,
@@ -300,6 +305,9 @@ export default function PagarPage() {
       
       // Clear cart
       localStorage.removeItem("guest_session_id");
+      
+      // Dispatch cart update event
+      window.dispatchEvent(new Event("cartUpdated"));
       
       toast.success("¡Pago completado exitosamente!");
       router.push(`/pago/exito?orden=${result.orderNumber}`);
@@ -582,8 +590,8 @@ export default function PagarPage() {
                 {cart.items.map((item) => (
                   <div key={item.id} className="flex gap-3">
                     <div className="relative w-16 h-16 bg-pearl rounded flex-shrink-0 overflow-hidden">
-                      {item.imageUrl ? (
-                        <Image src={item.imageUrl} alt={item.name} fill className="object-cover" />
+                      {item.product.imageUrl ? (
+                        <Image src={item.product.imageUrl} alt={item.product.name} fill className="object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
                           <ShoppingBag className="h-6 w-6 text-graphite/30" />
@@ -592,15 +600,15 @@ export default function PagarPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-graphite truncate">
-                        {item.brand} {item.name}
+                        {item.product.brand} {item.product.name}
                       </p>
                       <p className="text-xs text-graphite/60">
-                        {item.quantity} × {item.price.toFixed(2)} €
+                        {item.quantity} × {item.product.price.toFixed(2)} €
                       </p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-medium text-graphite">
-                        {(item.price * item.quantity).toFixed(2)} €
+                        {(item.product.price * item.quantity).toFixed(2)} €
                       </p>
                     </div>
                   </div>
