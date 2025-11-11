@@ -1,133 +1,139 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/db';
-import { cartItems, products, session } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+// src/app/api/cart/get/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { headers } from "next/headers";
+import { db } from "@/db";
+import { cartItems, products } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { auth } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
+    // 1) Identidad: user (auth) o guest (sessionId en query)
     const { searchParams } = new URL(request.url);
-    const sessionId = searchParams.get('sessionId');
-    const authHeader = request.headers.get('authorization');
+    const guestSessionId = searchParams.get("sessionId") ?? null;
 
-    let userId: string | null = null;
+    const h = await headers();
+    const session = await auth.api.getSession({ headers: h }).catch(() => null);
+    const userId = session?.user?.id ?? null;
 
-    // Check for authentication via Bearer token
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
-      
-      // Query session table to get userId from token
-      const sessionRecord = await db.select()
-        .from(session)
-        .where(eq(session.token, token))
-        .limit(1);
-
-      if (sessionRecord.length > 0) {
-        userId = sessionRecord[0].userId;
-      }
+    // Si no hay ni userId ni sessionId => carrito vacío
+    if (!userId && !guestSessionId) {
+      return NextResponse.json(
+        { items: [], subtotal: 0, itemCount: 0 },
+        { status: 200 }
+      );
     }
 
-    // If neither authenticated nor guest session, return empty cart
-    if (!userId && !sessionId) {
-      return NextResponse.json({
-        items: [],
-        subtotal: 0,
-        itemCount: 0
-      });
-    }
+    // 2) Consultar carrito con LEFT JOIN a products
+    const whereCart = userId
+      ? eq(cartItems.userId, userId)
+      : eq(cartItems.sessionId, guestSessionId!);
 
-    // Query cart items with product details using LEFT JOIN
-    // Filter by userId (authenticated) or sessionId (guest)
-    let results;
-    if (userId) {
-      results = await db.select({
-        cartItem: cartItems,
-        product: products
+    const rows = await db
+      .select({
+        id: cartItems.id,
+        productId: cartItems.productId,
+        quantity: cartItems.quantity,
+        createdAt: cartItems.createdAt,
+        updatedAt: cartItems.updatedAt,
+        p_id: products.id,
+        p_name: products.name,
+        p_brand: products.brand,
+        p_reference: products.reference,
+        p_price: products.price,
+        p_stock: products.stock,
+        p_images: products.images,
+        p_imageUrl: products.imageUrl, // por si ya tienes un campo directo
       })
       .from(cartItems)
       .leftJoin(products, eq(cartItems.productId, products.id))
-      .where(eq(cartItems.userId, userId));
-    } else if (sessionId) {
-      results = await db.select({
-        cartItem: cartItems,
-        product: products
-      })
-      .from(cartItems)
-      .leftJoin(products, eq(cartItems.productId, products.id))
-      .where(eq(cartItems.sessionId, sessionId));
-    } else {
-      return NextResponse.json({
-        items: [],
-        subtotal: 0,
-        itemCount: 0
-      });
+      .where(whereCart);
+
+    if (rows.length === 0) {
+      return NextResponse.json(
+        { items: [], subtotal: 0, itemCount: 0 },
+        { status: 200 }
+      );
     }
 
-    // If no items found, return empty cart
-    if (results.length === 0) {
-      return NextResponse.json({
-        items: [],
-        subtotal: 0,
-        itemCount: 0
-      });
-    }
-
-    // Transform results and calculate totals
+    // 3) Transformar filas → items + totales
     let subtotal = 0;
     let itemCount = 0;
 
-    const items = results.map(row => {
-      const { cartItem, product } = row;
+    const items = rows
+      .map((r) => {
+        // Producto puede ser null si quedó huérfano; lo filtramos
+        if (!r.p_id) return null;
 
-      // Handle missing product
-      if (!product) {
-        return null;
-      }
-
-      const itemSubtotal = product.price * cartItem.quantity;
-      subtotal += itemSubtotal;
-      itemCount += cartItem.quantity;
-
-      // Get first image from images array
-      let imageUrl = null;
-      if (product.images) {
-        const imagesArray = typeof product.images === 'string' 
-          ? JSON.parse(product.images) 
-          : product.images;
-        if (Array.isArray(imagesArray) && imagesArray.length > 0) {
-          imageUrl = imagesArray[0];
+        // imageUrl: primero intenta product.imageUrl, si no, primer elemento de images
+        let imageUrl: string | null = r.p_imageUrl ?? null;
+        if (!imageUrl && r.p_images) {
+          try {
+            const imgs =
+              typeof r.p_images === "string"
+                ? (JSON.parse(r.p_images) as unknown)
+                : (r.p_images as unknown);
+            if (Array.isArray(imgs) && imgs.length > 0 && typeof imgs[0] === "string") {
+              imageUrl = imgs[0] as string;
+            }
+          } catch {
+            // ignorar parse error y dejar imageUrl en null
+          }
         }
-      }
 
-      return {
-        id: cartItem.id,
-        productId: cartItem.productId,
-        quantity: cartItem.quantity,
+        const line = (r.p_price ?? 0) * r.quantity;
+        subtotal += line;
+        itemCount += r.quantity;
+
+        return {
+          id: r.id,
+          productId: r.productId,
+          quantity: r.quantity,
+          product: {
+            id: r.p_id,
+            name: r.p_name,
+            brand: r.p_brand,
+            reference: r.p_reference,
+            price: r.p_price,
+            stock: r.p_stock,
+            imageUrl,
+          },
+        };
+      })
+      .filter(Boolean) as Array<{
+        id: number;
+        productId: number | null;
+        quantity: number;
         product: {
-          id: product.id,
-          name: product.name,
-          brand: product.brand,
-          reference: product.reference,
-          price: product.price,
-          stock: product.stock,
-          imageUrl
-        },
-        subtotal: itemSubtotal
-      };
-    }).filter(item => item !== null);
+          id: number;
+          name: string | null;
+          brand: string | null;
+          reference: string | null;
+          price: number | null;
+          stock: number | null;
+          imageUrl: string | null;
+        };
+      }>;
 
-    return NextResponse.json({
-      items,
-      subtotal: Math.round(subtotal * 100) / 100,
-      itemCount
-    });
-
-  } catch (error) {
-    console.error('GET cart error:', error);
     return NextResponse.json(
-      { error: 'Error interno del servidor: ' + (error as Error).message },
+      {
+        items,
+        subtotal: Number(subtotal.toFixed(2)),
+        itemCount,
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("GET /api/cart/get error:", error);
+    return NextResponse.json(
+      {
+        error:
+          "Error interno del servidor: " +
+          (error instanceof Error ? error.message : "Error desconocido"),
+      },
       { status: 500 }
     );
   }
