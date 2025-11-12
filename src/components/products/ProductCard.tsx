@@ -11,7 +11,7 @@ import { trackAddToCart } from "@/lib/analytics";
 
 interface ProductCardProps {
   product: {
-    id: number;
+    id: number | string;
     slug: string;
     name: string;
     brand: string;
@@ -32,7 +32,10 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [isBuying, setIsBuying] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
 
-  // Parse images
+  // Normaliza id a número por si viene como string
+  const productId = Number(product.id);
+
+  // Parse imágenes (primera imagen o placeholder)
   let imageUrl = "/images/products/placeholder-watch.webp";
   if (product.images) {
     if (typeof product.images === "string") {
@@ -47,7 +50,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     }
   }
 
-  // Check if product is in wishlist on mount
+  // Comprobar wishlist al montar (si hay sesión)
   useEffect(() => {
     const checkWishlist = async () => {
       const token = localStorage.getItem("bearer_token");
@@ -57,24 +60,25 @@ export default function ProductCard({ product }: ProductCardProps) {
         const response = await fetch("/api/wishlist/get", {
           headers: { Authorization: `Bearer ${token}` },
         });
-
-        if (response.ok) {
-          const wishlist = await response.json();
-          const inWishlist = wishlist.some((item: any) => item.productId === product.id);
-          setIsInWishlist(inWishlist);
-        }
-      } catch (error) {
-        // Silently fail
+        if (!response.ok) return;
+        const wishlist = await response.json();
+        const inWishlist = wishlist.some((item: any) => item.productId === productId);
+        setIsInWishlist(inWishlist);
+      } catch {
+        /* noop */
       }
     };
-
     checkWishlist();
-  }, [product.id]);
+  }, [productId]);
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
+    if (!productId || Number.isNaN(productId)) {
+      toast.error("Producto inválido");
+      return;
+    }
     if (product.stock === 0) {
       toast.error("Producto sin stock");
       return;
@@ -85,46 +89,42 @@ export default function ProductCard({ product }: ProductCardProps) {
       const token = localStorage.getItem("bearer_token");
       let sessionId = localStorage.getItem("guest_session_id");
 
-      // Generate guest session ID if not exists
       if (!token && !sessionId) {
-        sessionId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        sessionId = `guest_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         localStorage.setItem("guest_session_id", sessionId);
       }
 
-      const headers: any = { "Content-Type": "application/json" };
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers.Authorization = `Bearer ${token}`;
 
-      const response = await fetch("/api/cart/add", {
+      const res = await fetch("/api/cart/add", {
         method: "POST",
         headers,
         body: JSON.stringify({
-          productId: product.id,
+          productId,
           quantity: 1,
           sessionId: !token ? sessionId : undefined,
         }),
       });
 
-      if (response.ok) {
-        toast.success("Añadido al carrito");
-        
-        // Track analytics
-        trackAddToCart({
-          id: product.id,
-          name: product.name,
-          brand: product.brand,
-          reference: product.reference,
-          price: product.price,
-          quantity: 1,
-        });
-        
-        // Trigger cart count refresh
-        window.dispatchEvent(new Event("cartUpdated"));
-      } else {
-        const error = await response.json();
-        toast.error(error.error || "Error al añadir al carrito");
-      }
-    } catch (error) {
-      toast.error("Error al añadir al carrito");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Error al añadir al carrito");
+
+      toast.success("Añadido al carrito");
+      trackAddToCart({
+        id: productId,
+        name: product.name,
+        brand: product.brand,
+        reference: product.reference,
+        price: product.price,
+        quantity: 1,
+      });
+
+      // ⚠️ Usa el mismo evento que escucha tu CartContext
+      window.dispatchEvent(new CustomEvent("cart:updated"));
+    } catch (err: any) {
+      toast.error(err?.message || "Error al añadir al carrito");
+      console.error(err);
     } finally {
       setIsAdding(false);
     }
@@ -133,7 +133,11 @@ export default function ProductCard({ product }: ProductCardProps) {
   const handleBuyNow = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
+    if (!productId || Number.isNaN(productId)) {
+      toast.error("Producto inválido");
+      return;
+    }
     if (product.stock === 0) {
       toast.error("Producto sin stock");
       return;
@@ -144,44 +148,33 @@ export default function ProductCard({ product }: ProductCardProps) {
       const token = localStorage.getItem("bearer_token");
       let sessionId = localStorage.getItem("guest_session_id");
 
-      // Generate guest session ID if not exists
       if (!token && !sessionId) {
-        sessionId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        sessionId = `guest_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         localStorage.setItem("guest_session_id", sessionId);
       }
 
-      const headers: any = { "Content-Type": "application/json" };
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers.Authorization = `Bearer ${token}`;
 
-      const response = await fetch("/api/cart/add", {
+      const res = await fetch("/api/cart/add", {
         method: "POST",
         headers,
         body: JSON.stringify({
-          productId: product.id,
+          productId,
           quantity: 1,
           sessionId: !token ? sessionId : undefined,
         }),
       });
 
-      if (response.ok) {
-        // Track analytics
-        trackAddToCart({
-          id: product.id,
-          name: product.name,
-          brand: product.brand,
-          reference: product.reference,
-          price: product.price,
-          quantity: 1,
-        });
-        
-        // Redirect to cart
-        router.push("/carrito");
-      } else {
-        const error = await response.json();
-        toast.error(error.error || "Error al procesar la compra");
-      }
-    } catch (error) {
-      toast.error("Error al procesar la compra");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Error al procesar la compra");
+
+      // Notifica y manda al carrito
+      window.dispatchEvent(new CustomEvent("cart:updated"));
+      router.push("/carrito");
+    } catch (err: any) {
+      toast.error(err?.message || "Error al procesar la compra");
+      console.error(err);
     } finally {
       setIsBuying(false);
     }
@@ -190,7 +183,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const handleToggleWishlist = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     const token = localStorage.getItem("bearer_token");
     if (!token) {
       toast.error("Debes iniciar sesión para usar favoritos");
@@ -204,20 +197,18 @@ export default function ProductCard({ product }: ProductCardProps) {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ productId: product.id }),
+        body: JSON.stringify({ productId }),
       });
 
       if (response.ok) {
         const data = await response.json();
         setIsInWishlist(data.inWishlist);
         toast.success(data.message);
-        
-        // Trigger wishlist count refresh
         window.dispatchEvent(new Event("wishlistUpdated"));
       } else {
         toast.error("Error al actualizar favoritos");
       }
-    } catch (error) {
+    } catch {
       toast.error("Error al actualizar favoritos");
     }
   };
@@ -325,9 +316,8 @@ export default function ProductCard({ product }: ProductCardProps) {
             </p>
           </div>
 
-          {/* Action Buttons - Estrategia según specs */}
+          {/* Action Buttons */}
           <div className="space-y-2">
-            {/* Primary: Añadir al carrito (champagne, full width) */}
             <button
               onClick={handleAddToCart}
               disabled={isAdding || product.stock === 0}
@@ -336,8 +326,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             >
               {product.stock === 0 ? "Sin stock" : isAdding ? "Añadiendo..." : "Añadir al carrito"}
             </button>
-            
-            {/* Secondary: Comprar ahora (graphite) */}
+
             <button
               onClick={handleBuyNow}
               disabled={isBuying || product.stock === 0}
@@ -346,8 +335,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             >
               {isBuying ? "Procesando..." : "Comprar ahora"}
             </button>
-            
-            {/* Tertiary: Ver detalles (text link, graphite with underline) */}
+
             <Link 
               href={`/productos/${product.slug}`}
               className="block w-full text-center text-sm text-graphite hover:text-champagne transition-colors underline-offset-2 hover:underline py-1"
