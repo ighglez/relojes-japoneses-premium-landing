@@ -11,21 +11,17 @@ export const dynamic = "force-dynamic";
 
 export async function DELETE(request: NextRequest) {
   try {
-    // 1) Params: itemId (obligatorio) y sessionId (si es guest)
     const { searchParams } = new URL(request.url);
     const rawItemId = searchParams.get("itemId");
-    const guestSessionId = searchParams.get("sessionId") ?? null;
+    const allFlag = searchParams.get("all"); // si viene "true", vacía el carrito
 
-    const itemId = Number(rawItemId);
-    if (!Number.isFinite(itemId) || itemId <= 0) {
-      return NextResponse.json(
-        { error: "ID del artículo inválido" },
-        { status: 400 }
-      );
-    }
-
-    // 2) Identidad: user (auth) o guest (sessionId)
+    // sessionId: query o cabecera x-session-id (para guests)
+    const sessionIdFromQuery = searchParams.get("sessionId");
     const h = await headers();
+    const sessionIdFromHeader = h.get("x-session-id") ?? undefined;
+    const guestSessionId = sessionIdFromQuery || sessionIdFromHeader || null;
+
+    // Usuario autenticado (Better Auth)
     const session = await auth.api.getSession({ headers: h }).catch(() => null);
     const userId = session?.user?.id ?? null;
 
@@ -36,7 +32,37 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // 3) Leer el cart item y verificar propiedad
+    // --------- VACÍAR CARRITO COMPLETO ---------
+    if (allFlag === "true") {
+      const whereCart = userId
+        ? eq(cartItems.userId, userId)
+        : eq(cartItems.sessionId, guestSessionId!);
+
+      await db.delete(cartItems).where(whereCart);
+
+      // Devolver carrito vacío y totales a 0
+      return NextResponse.json(
+        {
+          ok: true,
+          message: "Carrito vaciado",
+          items: [],
+          subtotal: 0,
+          itemCount: 0,
+        },
+        { status: 200 }
+      );
+    }
+
+    // --------- BORRAR ITEM CONCRETO ---------
+    const itemId = Number(rawItemId);
+    if (!Number.isFinite(itemId) || itemId <= 0) {
+      return NextResponse.json(
+        { error: "ID del artículo inválido" },
+        { status: 400 }
+      );
+    }
+
+    // Leer el cart item
     const [item] = await db
       .select()
       .from(cartItems)
@@ -50,23 +76,24 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // Verificar propiedad
     const belongsToUser = userId ? item.userId === userId : item.sessionId === guestSessionId;
     if (!belongsToUser) {
-      // No revelamos información si no te pertenece
+      // No revelamos info si no pertenece
       return NextResponse.json(
         { error: "Artículo del carrito no encontrado" },
         { status: 404 }
       );
     }
 
-    // 4) Borrar con verificación de propiedad
+    // Borrar con verificación de propiedad
     const delWhere = userId
       ? and(eq(cartItems.id, itemId), eq(cartItems.userId, userId))
       : and(eq(cartItems.id, itemId), eq(cartItems.sessionId, guestSessionId!));
 
     await db.delete(cartItems).where(delWhere);
 
-    // 5) Releer carrito y devolver resumen consistente
+    // Releer carrito para devolver estado consistente
     const whereCart = userId
       ? eq(cartItems.userId, userId)
       : eq(cartItems.sessionId, guestSessionId!);
@@ -84,24 +111,40 @@ export async function DELETE(request: NextRequest) {
         productPrice: products.price,
         productStock: products.stock,
         productImageUrl: products.imageUrl,
+        productImagesJson: products.images, // posible JSON con array de imágenes
       })
       .from(cartItems)
       .leftJoin(products, eq(cartItems.productId, products.id))
       .where(whereCart);
 
-    const items = rows.map((r) => ({
-      id: r.id,
-      productId: r.productId,
-      quantity: r.quantity,
-      product: {
-        name: r.productName,
-        brand: r.productBrand,
-        reference: r.productReference,
-        price: r.productPrice,
-        stock: r.productStock,
-        imageUrl: r.productImageUrl,
-      },
-    }));
+    const items = rows.map((r) => {
+      // fallback de imagen: si imageUrl no existe, intenta sacar la primera del JSON `images`
+      let imageUrl = r.productImageUrl ?? null;
+      if (!imageUrl && r.productImagesJson) {
+        try {
+          const arr = typeof r.productImagesJson === "string"
+            ? JSON.parse(r.productImagesJson)
+            : r.productImagesJson;
+          if (Array.isArray(arr) && arr.length > 0) imageUrl = arr[0];
+        } catch {
+          // ignorar parse fallido
+        }
+      }
+
+      return {
+        id: r.id,
+        productId: r.productId,
+        quantity: r.quantity,
+        product: {
+          name: r.productName,
+          brand: r.productBrand,
+          reference: r.productReference,
+          price: r.productPrice,
+          stock: r.productStock,
+          imageUrl,
+        },
+      };
+    });
 
     const subtotal = rows.reduce(
       (acc, r) => acc + ((r.productPrice ?? 0) * r.quantity),
