@@ -1,35 +1,61 @@
 "use client";
 
-import { ShoppingCart } from "lucide-react";
-import { useCart } from "@/contexts/CartContext";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState } from "react";
 
-interface CartButtonProps {
-  onClick: () => void;
-}
+type Props = {
+  productId: number;        // ⚠️ Pásale el ID real del producto desde tu card o página de detalle
+  quantity?: number;
+  className?: string;
+};
 
-export default function CartButton({ onClick }: CartButtonProps) {
-  const { itemCount } = useCart();
+export default function AddToCartButton({ productId, quantity = 1, className }: Props) {
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function handleAdd() {
+    setLoading(true);
+    setMsg(null);
+
+    // sessionId para invitados
+    let sid = localStorage.getItem("cart_session_id");
+    if (!sid) {
+      sid = `guest_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      localStorage.setItem("cart_session_id", sid);
+    }
+
+    try {
+      const res = await fetch("/api/cart/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId, quantity, sessionId: sid }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "No se pudo añadir al carrito");
+
+      // Notifica al contexto para que refresque itemCount
+      window.dispatchEvent(new CustomEvent("cart:updated"));
+      setMsg("Producto añadido al carrito");
+    } catch (e: any) {
+      setMsg(e.message || "No se pudo añadir al carrito");
+      console.error("add-to-cart error:", e);
+    } finally {
+      setLoading(false);
+      setTimeout(() => setMsg(null), 2500);
+    }
+  }
 
   return (
-    <button
-      onClick={onClick}
-      className="relative p-2 text-graphite hover:text-champagne transition-colors"
-      aria-label={`Carrito (${itemCount} artículos)`}
-    >
-      <ShoppingCart className="h-6 w-6" />
-      <AnimatePresence>
-        {itemCount > 0 && (
-          <motion.span
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            exit={{ scale: 0 }}
-            className="absolute -top-1 -right-1 bg-champagne text-ivory text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center"
-          >
-            {itemCount > 9 ? "9+" : itemCount}
-          </motion.span>
-        )}
-      </AnimatePresence>
-    </button>
+    <div className={className}>
+      <button
+        onClick={handleAdd}
+        disabled={loading}
+        className="w-full bg-champagne text-ivory rounded-lg px-4 py-2 font-medium hover:bg-champagne/90 transition disabled:opacity-60"
+        aria-label="Añadir al carrito"
+      >
+        {loading ? "Añadiendo…" : "Añadir al carrito"}
+      </button>
+      {msg && <p className="mt-2 text-sm text-graphite/70">{msg}</p>}
+    </div>
   );
 }
