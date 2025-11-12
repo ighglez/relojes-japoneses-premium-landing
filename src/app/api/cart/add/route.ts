@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+// src/app/api/cart/add/route.ts
+import { NextRequest, NextResponse } from 'next/server'; 
+import { headers } from 'next/headers';
 import { db } from '@/db';
 import { cartItems, products, session as sessionTable } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
@@ -8,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
-    // 1) Parseo de body robusto
+    // 1) Body robusto
     let body: any = null;
     try {
       body = await request.json();
@@ -28,6 +30,10 @@ export async function POST(request: NextRequest) {
     // 2) Extrae y normaliza
     const rawProductId = body.productId;
     const qty = body.quantity ?? 1;
+
+    // <- NUEVO: aceptar sessionId por cabecera o por body
+    const h = await headers();
+    const headerSessionId = h.get('x-session-id');             // p.ej. enviado por el cliente invitado
     const requestSessionId = typeof body.sessionId === 'string' ? body.sessionId : null;
 
     // 3) Contexto de usuario (Bearer opcional)
@@ -36,7 +42,6 @@ export async function POST(request: NextRequest) {
 
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.slice(7);
-      // Busca el userId por token en la tabla session (Better Auth)
       const sessionRow = await db
         .select()
         .from(sessionTable)
@@ -64,8 +69,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Invitado: si no hay userId, debe llegar sessionId
-    let sessionId: string | null = userId ? null : requestSessionId;
+    // Invitado: si no hay userId, debe llegar sessionId (cabecera o body)
+    const sessionId: string | null = userId ? null : (requestSessionId || headerSessionId || null);
     if (!userId && !sessionId) {
       return NextResponse.json(
         { error: 'Falta sessionId para carrito de invitado', code: 'MISSING_SESSION_ID' },
