@@ -1,9 +1,10 @@
 // src/app/api/cart/add/route.ts
-import { NextRequest, NextResponse } from 'next/server'; 
+import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { db } from '@/db';
 import { cartItems, products, session as sessionTable } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { auth } from '@/lib/auth';
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,25 +32,33 @@ export async function POST(request: NextRequest) {
     const rawProductId = body.productId;
     const qty = body.quantity ?? 1;
 
-    // <- NUEVO: aceptar sessionId por cabecera o por body
+    // Acepta sessionId por cabecera o por body
     const h = await headers();
-    const headerSessionId = h.get('x-session-id');             // p.ej. enviado por el cliente invitado
+    const headerSessionId = h.get('x-session-id');
     const requestSessionId = typeof body.sessionId === 'string' ? body.sessionId : null;
 
-    // 3) Contexto de usuario (Bearer opcional)
-    const authHeader = request.headers.get('authorization');
+    // 3) Contexto de usuario
+    // 3a) Intenta via cookie (Better Auth)
     let userId: string | null = null;
-
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.slice(7);
-      const sessionRow = await db
-        .select()
-        .from(sessionTable)
-        .where(eq(sessionTable.token, token))
-        .limit(1);
-
-      if (sessionRow.length > 0) {
-        userId = sessionRow[0].userId;
+    try {
+      const session = await auth.api.getSession({ headers: h });
+      userId = session?.user?.id ?? null;
+    } catch {
+      // ignore
+    }
+    // 3b) Si no hay cookie, intenta Bearer token
+    if (!userId) {
+      const authHeader = request.headers.get('authorization');
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.slice(7);
+        const sessionRow = await db
+          .select()
+          .from(sessionTable)
+          .where(eq(sessionTable.token, token))
+          .limit(1);
+        if (sessionRow.length > 0) {
+          userId = sessionRow[0].userId;
+        }
       }
     }
 
@@ -79,20 +88,18 @@ export async function POST(request: NextRequest) {
     }
 
     // 5) Producto existe + stock
-    const productRows = await db
+    const [product] = await db
       .select()
       .from(products)
       .where(eq(products.id, productId))
       .limit(1);
 
-    if (productRows.length === 0) {
+    if (!product) {
       return NextResponse.json(
         { error: 'Producto no encontrado', code: 'PRODUCT_NOT_FOUND' },
         { status: 404 }
       );
     }
-
-    const product = productRows[0];
 
     if ((product.stock ?? 0) < qty) {
       return NextResponse.json(
@@ -124,17 +131,17 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const updated = await db
+      const [updated] = await db
         .update(cartItems)
         .set({ quantity: newQuantity, updatedAt: new Date().toISOString() })
         .where(whereExisting)
         .returning();
 
-      return NextResponse.json({ ok: true, item: updated[0] }, { status: 200 });
+      return NextResponse.json({ ok: true, item: updated }, { status: 200 });
     }
 
     // 7) Inserta nuevo ítem
-    const inserted = await db
+    const [inserted] = await db
       .insert(cartItems)
       .values({
         userId: userId || null,
@@ -146,7 +153,7 @@ export async function POST(request: NextRequest) {
       })
       .returning();
 
-    return NextResponse.json({ ok: true, item: inserted[0] }, { status: 201 });
+    return NextResponse.json({ ok: true, item: inserted }, { status: 201 });
   } catch (err) {
     console.error('POST /api/cart/add fatal:', err);
     return NextResponse.json(
