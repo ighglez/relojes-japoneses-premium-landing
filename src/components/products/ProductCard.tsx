@@ -1,3 +1,4 @@
+// src/components/products/ProductCard.tsx
 "use client";
 
 import { motion } from "framer-motion";
@@ -95,7 +96,12 @@ export default function ProductCard({ product }: ProductCardProps) {
       }
 
       const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) headers.Authorization = `Bearer ${token}`;
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      } else if (sessionId) {
+        // 🔑 IMPORTANTE: enviar también por CABECERA para el backend
+        headers["X-Session-Id"] = sessionId;
+      }
 
       const res = await fetch("/api/cart/add", {
         method: "POST",
@@ -103,6 +109,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         body: JSON.stringify({
           productId,
           quantity: 1,
+          // Lo mantenemos también en el body por si lo usas en algún middleware
           sessionId: !token ? sessionId : undefined,
         }),
       });
@@ -120,7 +127,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         quantity: 1,
       });
 
-      // ⚠️ Usa el mismo evento que escucha tu CartContext
+      // Usa el mismo evento que escuchará el CartContext
       window.dispatchEvent(new CustomEvent("cart:updated"));
     } catch (err: any) {
       toast.error(err?.message || "Error al añadir al carrito");
@@ -154,7 +161,12 @@ export default function ProductCard({ product }: ProductCardProps) {
       }
 
       const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) headers.Authorization = `Bearer ${token}`;
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      } else if (sessionId) {
+        // 🔑 IMPORTANTE para invitados
+        headers["X-Session-Id"] = sessionId;
+      }
 
       const res = await fetch("/api/cart/add", {
         method: "POST",
@@ -169,7 +181,6 @@ export default function ProductCard({ product }: ProductCardProps) {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Error al procesar la compra");
 
-      // Notifica y manda al carrito
       window.dispatchEvent(new CustomEvent("cart:updated"));
       router.push("/carrito");
     } catch (err: any) {
@@ -303,7 +314,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             </div>
           </Link>
 
-          {product.description && (
+        {product.description && (
             <p className="text-sm text-graphite/70 mb-3 line-clamp-2">
               {product.description}
             </p>
