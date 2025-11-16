@@ -94,7 +94,6 @@ export default function CarritoPage() {
         setAppliedCoupon(data.coupon);
         setDiscount(data.discountAmount);
         
-        // WELCOME5 includes free shipping
         if (data.coupon.code === "WELCOME5") {
           setShippingCost(0);
           toast.success(`Cupón aplicado: -${data.discountAmount.toFixed(2)} € + Envío gratis`);
@@ -223,19 +222,10 @@ export default function CarritoPage() {
         total,
         appliedCoupon?.code
       );
-
-      // Vaciar carrito en servidor (user o guest)
-      try {
-        const clearHeaders: Record<string, string> = {};
-        if (token) clearHeaders.Authorization = `Bearer ${token}`;
-        else if (sessionId) clearHeaders["X-Session-Id"] = sessionId;
-        await fetch("/api/cart/remove?all=true", { method: "DELETE", headers: clearHeaders });
-      } catch {}
-
-      // Notificar UI
-      window.dispatchEvent(new Event("cart:updated"));
-
+      
+      await clearCart();
       toast.success("¡Pago completado exitosamente!");
+      
       router.push(`/pago/exito?orderId=${result.orderNumber}`);
     } catch (error) {
       console.error("Error capturing order:", error);
@@ -315,7 +305,7 @@ export default function CarritoPage() {
 
                   <div className="flex flex-col items-end justify-between">
                     <button
-                      onClick={() => removeItem(item.id)}
+                      onClick={() => removeItem(item.id)} {/* <- FIX: usar item.id */}
                       className="p-2 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
                       aria-label="Eliminar producto"
                     >
@@ -324,7 +314,7 @@ export default function CarritoPage() {
 
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))} {/* <- FIX */}
                         className="w-8 h-8 flex items-center justify-center bg-pearl hover:bg-champagne hover:text-ivory rounded transition-colors"
                         aria-label="Disminuir cantidad"
                       >
@@ -334,7 +324,7 @@ export default function CarritoPage() {
                         {item.quantity}
                       </span>
                       <button
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        onClick={() => updateQuantity(item.id, item.quantity + 1)} {/* <- FIX */}
                         className="w-8 h-8 flex items-center justify-center bg-pearl hover:bg-champagne hover:text-ivory rounded transition-colors"
                         aria-label="Aumentar cantidad"
                       >
