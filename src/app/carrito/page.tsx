@@ -223,10 +223,19 @@ export default function CarritoPage() {
         total,
         appliedCoupon?.code
       );
-      
-      await clearCart();
+
+      // Vaciar carrito en servidor (user o guest)
+      try {
+        const clearHeaders: Record<string, string> = {};
+        if (token) clearHeaders.Authorization = `Bearer ${token}`;
+        else if (sessionId) clearHeaders["X-Session-Id"] = sessionId;
+        await fetch("/api/cart/remove?all=true", { method: "DELETE", headers: clearHeaders });
+      } catch {}
+
+      // Notificar UI
+      window.dispatchEvent(new Event("cart:updated"));
+
       toast.success("¡Pago completado exitosamente!");
-      
       router.push(`/pago/exito?orderId=${result.orderNumber}`);
     } catch (error) {
       console.error("Error capturing order:", error);
@@ -306,7 +315,7 @@ export default function CarritoPage() {
 
                   <div className="flex flex-col items-end justify-between">
                     <button
-                      onClick={() => removeItem(item.productId)}
+                      onClick={() => removeItem(item.id)}
                       className="p-2 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
                       aria-label="Eliminar producto"
                     >
@@ -315,7 +324,7 @@ export default function CarritoPage() {
 
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
                         className="w-8 h-8 flex items-center justify-center bg-pearl hover:bg-champagne hover:text-ivory rounded transition-colors"
                         aria-label="Disminuir cantidad"
                       >
@@ -325,7 +334,7 @@ export default function CarritoPage() {
                         {item.quantity}
                       </span>
                       <button
-                        onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
                         className="w-8 h-8 flex items-center justify-center bg-pearl hover:bg-champagne hover:text-ivory rounded transition-colors"
                         aria-label="Aumentar cantidad"
                       >
