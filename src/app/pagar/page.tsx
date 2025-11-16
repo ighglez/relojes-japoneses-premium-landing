@@ -127,7 +127,6 @@ export default function PagarPage() {
     if (!shippingForm.name.trim()) errors.name = "Nombre es requerido";
     if (!shippingForm.email.trim()) errors.email = "Email es requerido";
     else if (!/\S+@\S+\.\S+/.test(shippingForm.email)) errors.email = "Email inválido";
-    // Phone is optional - no validation needed
     if (!shippingForm.address.trim()) errors.address = "Dirección es requerida";
     if (!shippingForm.city.trim()) errors.city = "Ciudad es requerida";
     if (!shippingForm.postalCode.trim()) errors.postalCode = "Código postal es requerido";
@@ -303,12 +302,17 @@ export default function PagarPage() {
         appliedCoupon?.code
       );
       
-      // Clear cart
-      localStorage.removeItem("guest_session_id");
-      
-      // Dispatch cart update event
-      window.dispatchEvent(new Event("cartUpdated"));
-      
+      // Vaciar carrito en servidor (user o guest)
+      try {
+        const clearHeaders: Record<string, string> = {};
+        if (token) clearHeaders.Authorization = `Bearer ${token}`;
+        else if (sessionId) clearHeaders["X-Session-Id"] = sessionId;
+        await fetch("/api/cart/remove?all=true", { method: "DELETE", headers: clearHeaders });
+      } catch {}
+
+      // Notificar UI (evento unificado)
+      window.dispatchEvent(new Event("cart:updated"));
+
       toast.success("¡Pago completado exitosamente!");
       router.push(`/pago/exito?orden=${result.orderNumber}`);
     } catch (error: any) {
