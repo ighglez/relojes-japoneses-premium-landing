@@ -208,7 +208,7 @@ export default function CarritoPage() {
 
                   <div className="flex flex-col items-end justify-between">
                     <button
-                      onClick={() => removeItem(item.id)} {/* <- usar cart item id */}
+                      onClick={() => removeItem(item.id)}
                       className="p-2 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
                       aria-label="Eliminar producto"
                       title="Eliminar producto"
@@ -221,7 +221,7 @@ export default function CarritoPage() {
                         onClick={() => {
                           const next = item.quantity - 1;
                           if (next < 1) return;
-                          updateQuantity(item.id, next); // <- usar cart item id
+                          updateQuantity(item.id, next);
                         }}
                         className="w-8 h-8 flex items-center justify-center bg-pearl hover:bg-champagne hover:text-ivory rounded transition-colors"
                         aria-label="Disminuir cantidad"
@@ -235,7 +235,7 @@ export default function CarritoPage() {
                       <button
                         onClick={() => {
                           const next = item.quantity + 1;
-                          updateQuantity(item.id, next); // <- usar cart item id
+                          updateQuantity(item.id, next);
                         }}
                         className="w-8 h-8 flex items-center justify-center bg-pearl hover:bg-champagne hover:text-ivory rounded transition-colors"
                         aria-label="Aumentar cantidad"
