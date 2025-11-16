@@ -1,3 +1,4 @@
+// src/app/pagar/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -14,6 +15,7 @@ import { trackBeginCheckout, trackPurchase } from "@/lib/analytics";
 import Link from "next/link";
 
 const STANDARD_SHIPPING = 19.99;
+const CART_EVENT = "cart:updated";
 
 interface CartItem {
   id: number;
@@ -28,7 +30,7 @@ interface CartItem {
     stock: number;
     imageUrl: string | null;
   };
-  subtotal: number;
+  subtotal?: number; // opcional por compat
 }
 
 interface Cart {
@@ -40,8 +42,10 @@ interface Cart {
 export default function PagarPage() {
   const router = useRouter();
   const { data: session } = useSession();
+
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
+
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
@@ -49,8 +53,8 @@ export default function PagarPage() {
   const [shippingCost, setShippingCost] = useState(STANDARD_SHIPPING);
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkoutTracked, setCheckoutTracked] = useState(false);
-  
-  // Shipping form
+
+  // Form envío
   const [shippingForm, setShippingForm] = useState({
     name: session?.user?.name || "",
     email: session?.user?.email || "",
@@ -60,11 +64,24 @@ export default function PagarPage() {
     postalCode: "",
     country: "España",
   });
-  
+
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // PayPal client id (aviso si falta)
+  const PAYPAL_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID!;
+  const paypalReady = Boolean(PAYPAL_ID);
 
   useEffect(() => {
     fetchCart();
+    // Si el carrito cambia en otra pestaña, recargar
+    const onUpdated = () => fetchCart();
+    window.addEventListener(CART_EVENT, onUpdated);
+    window.addEventListener("cartUpdated", onUpdated);
+    return () => {
+      window.removeEventListener(CART_EVENT, onUpdated);
+      window.removeEventListener("cartUpdated", onUpdated);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -77,7 +94,7 @@ export default function PagarPage() {
     }
   }, [session]);
 
-  // Track begin_checkout when user views checkout page
+  // Track begin_checkout cuando hay carrito
   useEffect(() => {
     if (cart && cart.items.length > 0 && !checkoutTracked) {
       const total = cart.subtotal - discount + shippingCost;
@@ -102,20 +119,28 @@ export default function PagarPage() {
       const token = localStorage.getItem("bearer_token");
       const sessionId = localStorage.getItem("guest_session_id");
 
-      const headers: any = {};
+      const headers: Record<string, string> = {};
       if (token) headers.Authorization = `Bearer ${token}`;
+      else if (sessionId) headers["X-Session-Id"] = sessionId;
 
       const url = sessionId ? `/api/cart/get?sessionId=${sessionId}` : `/api/cart/get`;
-      const response = await fetch(url, { headers });
+
+      const response = await fetch(url, {
+        headers,
+        credentials: "include",
+        cache: "no-store",
+      });
 
       if (response.ok) {
         const data = await response.json();
         setCart(data);
       } else {
         toast.error("Error al cargar el carrito");
+        setCart({ items: [], subtotal: 0, itemCount: 0 });
       }
     } catch (error) {
       toast.error("Error al cargar el carrito");
+      setCart({ items: [], subtotal: 0, itemCount: 0 });
     } finally {
       setLoading(false);
     }
@@ -123,7 +148,7 @@ export default function PagarPage() {
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
-    
+
     if (!shippingForm.name.trim()) errors.name = "Nombre es requerido";
     if (!shippingForm.email.trim()) errors.email = "Email es requerido";
     else if (!/\S+@\S+\.\S+/.test(shippingForm.email)) errors.email = "Email inválido";
@@ -132,12 +157,11 @@ export default function PagarPage() {
     if (!shippingForm.postalCode.trim()) errors.postalCode = "Código postal es requerido";
 
     setFormErrors(errors);
-    
+
     if (Object.keys(errors).length > 0) {
       toast.error("Por favor completa todos los campos requeridos");
       return false;
     }
-    
     return true;
   };
 
@@ -153,6 +177,8 @@ export default function PagarPage() {
       const response = await fetch("/api/coupons/validate", {
         method: "POST",
         headers,
+        credentials: "include",
+        cache: "no-store",
         body: JSON.stringify({
           code: couponCode,
           subtotal: cart.subtotal,
@@ -165,8 +191,7 @@ export default function PagarPage() {
       if (response.ok && data.valid) {
         setAppliedCoupon(data.coupon);
         setDiscount(data.discountAmount);
-        
-        // WELCOME5 includes free shipping
+
         if (data.coupon.code === "WELCOME5") {
           setShippingCost(0);
           toast.success(`Cupón aplicado: -${data.discountAmount.toFixed(2)} € + Envío gratis`);
@@ -176,7 +201,7 @@ export default function PagarPage() {
       } else {
         toast.error(data.message || "Cupón no válido");
       }
-    } catch (error) {
+    } catch {
       toast.error("Error al validar cupón");
     } finally {
       setValidatingCoupon(false);
@@ -195,7 +220,6 @@ export default function PagarPage() {
     if (!cart || cart.items.length === 0) {
       throw new Error("Cart is empty");
     }
-
     if (!validateForm()) {
       throw new Error("Invalid form");
     }
@@ -225,11 +249,13 @@ export default function PagarPage() {
       const response = await fetch("/api/orders/create-paypal", {
         method: "POST",
         headers,
+        credentials: "include",
+        cache: "no-store",
         body: JSON.stringify(orderData),
       });
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({}));
         throw new Error(error.error || "Failed to create order");
       }
 
@@ -275,17 +301,19 @@ export default function PagarPage() {
       const response = await fetch("/api/orders/capture-paypal", {
         method: "POST",
         headers,
+        credentials: "include",
+        cache: "no-store",
         body: JSON.stringify(orderData),
       });
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({}));
         throw new Error(error.error || "Failed to capture order");
       }
 
       const result = await response.json();
-      
-      // Track purchase analytics
+
+      // Analytics
       trackPurchase(
         result.orderNumber,
         cart.items.map((item) => ({
@@ -301,17 +329,10 @@ export default function PagarPage() {
         total,
         appliedCoupon?.code
       );
-      
-      // Vaciar carrito en servidor (user o guest)
-      try {
-        const clearHeaders: Record<string, string> = {};
-        if (token) clearHeaders.Authorization = `Bearer ${token}`;
-        else if (sessionId) clearHeaders["X-Session-Id"] = sessionId;
-        await fetch("/api/cart/remove?all=true", { method: "DELETE", headers: clearHeaders });
-      } catch {}
 
-      // Notificar UI (evento unificado)
-      window.dispatchEvent(new Event("cart:updated"));
+      // Limpiar carrito local invitado (servidor debería vaciar en capture)
+      localStorage.removeItem("guest_session_id");
+      window.dispatchEvent(new Event(CART_EVENT));
 
       toast.success("¡Pago completado exitosamente!");
       router.push(`/pago/exito?orden=${result.orderNumber}`);
@@ -407,7 +428,7 @@ export default function PagarPage() {
               <h2 className="font-heading text-xl font-medium text-graphite mb-4">
                 Información de envío
               </h2>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-graphite mb-2">
@@ -553,14 +574,20 @@ export default function PagarPage() {
               <h2 className="font-heading text-xl font-medium text-graphite mb-4">
                 Método de pago
               </h2>
-              
+
+              {!paypalReady && (
+                <p className="text-sm text-red-600 mb-3">
+                  Falta configurar <code>NEXT_PUBLIC_PAYPAL_CLIENT_ID</code>. Sin ello el botón de PayPal no se mostrará.
+                </p>
+              )}
+
               <p className="text-sm text-graphite/70 mb-4">
                 Completa el formulario de envío para habilitar el pago con PayPal
               </p>
 
               <PayPalScriptProvider
                 options={{
-                  clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID!,
+                  clientId: PAYPAL_ID || "missing",
                   currency: "EUR",
                   intent: "capture",
                 }}
