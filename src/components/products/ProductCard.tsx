@@ -1,3 +1,4 @@
+// src/components/products/ProductCard.tsx
 "use client";
 
 import { motion } from "framer-motion";
@@ -8,8 +9,6 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { trackAddToCart } from "@/lib/analytics";
-
-const CART_EVENT = "cart:updated";
 
 interface ProductCardProps {
   product: {
@@ -27,6 +26,8 @@ interface ProductCardProps {
     images?: string[] | string | null;
   };
 }
+
+const CART_EVENT = "cart:updated";
 
 export default function ProductCard({ product }: ProductCardProps) {
   const router = useRouter();
@@ -59,78 +60,90 @@ export default function ProductCard({ product }: ProductCardProps) {
       try {
         const response = await fetch("/api/wishlist/get", {
           headers: { Authorization: `Bearer ${token}` },
-          credentials: "include",
           cache: "no-store",
+          credentials: "include",
         });
         if (!response.ok) return;
         const wishlist = await response.json();
         const inWishlist = wishlist.some((item: any) => item.productId === productId);
         setIsInWishlist(inWishlist);
-      } catch { /* noop */ }
+      } catch {}
     };
     checkWishlist();
   }, [productId]);
 
-  const ensureSessionId = () => {
-    let sessionId = localStorage.getItem("guest_session_id");
-    if (!sessionId) {
-      sessionId = `guest_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      localStorage.setItem("guest_session_id", sessionId);
+  // Helpers
+  const ensureGuestSessionId = () => {
+    let sid = localStorage.getItem("guest_session_id");
+    if (!sid) {
+      sid = `guest_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      localStorage.setItem("guest_session_id", sid);
     }
-    return sessionId;
+    return sid;
   };
 
-  const buildAuthHeaders = () => {
+  const addToCartRequest = async () => {
     const token = localStorage.getItem("bearer_token");
+    let sessionId = localStorage.getItem("guest_session_id");
+    if (!token && !sessionId) sessionId = ensureGuestSessionId();
+
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) {
       headers.Authorization = `Bearer ${token}`;
-    } else {
-      headers["X-Session-Id"] = ensureSessionId();
+    } else if (sessionId) {
+      headers["X-Session-Id"] = sessionId;
     }
-    return headers;
+
+    const res = await fetch("/api/cart/add", {
+      method: "POST",
+      headers,
+      cache: "no-store",
+      credentials: "include",
+      body: JSON.stringify({
+        productId,
+        quantity: 1,
+        sessionId: token ? undefined : sessionId, // redundante pero útil si hay middleware
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data?.error || "Error al añadir al carrito");
+    }
+
+    // Analytics + evento global
+    trackAddToCart({
+      id: productId,
+      name: product.name,
+      brand: product.brand,
+      reference: product.reference,
+      price: product.price,
+      quantity: 1,
+    });
+    window.dispatchEvent(new Event(CART_EVENT));
   };
 
+  // Handlers
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!productId || Number.isNaN(productId)) return toast.error("Producto inválido");
-    if (product.stock === 0) return toast.error("Producto sin stock");
+
+    if (!productId || Number.isNaN(productId)) {
+      toast.error("Producto inválido");
+      return;
+    }
+    if (product.stock === 0) {
+      toast.error("Producto sin stock");
+      return;
+    }
 
     setIsAdding(true);
     try {
-      const token = localStorage.getItem("bearer_token");
-      const sessionId = token ? null : ensureSessionId();
-
-      const res = await fetch("/api/cart/add", {
-        method: "POST",
-        headers: buildAuthHeaders(),
-        credentials: "include",
-        cache: "no-store",
-        body: JSON.stringify({
-          productId,
-          quantity: 1,
-          sessionId: sessionId || undefined, // body opcional para guests
-        }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || "Error al añadir al carrito");
-
+      await addToCartRequest();
       toast.success("Añadido al carrito");
-      trackAddToCart({
-        id: productId,
-        name: product.name,
-        brand: product.brand,
-        reference: product.reference,
-        price: product.price,
-        quantity: 1,
-      });
-
-      window.dispatchEvent(new Event(CART_EVENT));
     } catch (err: any) {
-      console.error(err);
       toast.error(err?.message || "Error al añadir al carrito");
+      console.error(err);
     } finally {
       setIsAdding(false);
     }
@@ -139,36 +152,23 @@ export default function ProductCard({ product }: ProductCardProps) {
   const handleBuyNow = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!productId || Number.isNaN(productId)) return toast.error("Producto inválido");
-    if (product.stock === 0) return toast.error("Producto sin stock");
+
+    if (!productId || Number.isNaN(productId)) {
+      toast.error("Producto inválido");
+      return;
+    }
+    if (product.stock === 0) {
+      toast.error("Producto sin stock");
+      return;
+    }
 
     setIsBuying(true);
     try {
-      const token = localStorage.getItem("bearer_token");
-      const sessionId = token ? null : ensureSessionId();
-
-      // 1) añade (espera a que termine)
-      const res = await fetch("/api/cart/add", {
-        method: "POST",
-        headers: buildAuthHeaders(),
-        credentials: "include",
-        cache: "no-store",
-        body: JSON.stringify({
-          productId,
-          quantity: 1,
-          sessionId: sessionId || undefined,
-        }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || "Error al procesar la compra");
-
-      // 2) refresca y navega a /pagar
-      window.dispatchEvent(new Event(CART_EVENT));
-      router.push("/pagar");
+      await addToCartRequest();
+      router.push("/pagar"); // ir directo al checkout
     } catch (err: any) {
-      console.error(err);
       toast.error(err?.message || "Error al procesar la compra");
+      console.error(err);
     } finally {
       setIsBuying(false);
     }
@@ -177,19 +177,25 @@ export default function ProductCard({ product }: ProductCardProps) {
   const handleToggleWishlist = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
     const token = localStorage.getItem("bearer_token");
     if (!token) {
       toast.error("Debes iniciar sesión para usar favoritos");
       return;
     }
+
     try {
       const response = await fetch("/api/wishlist/toggle", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         credentials: "include",
         cache: "no-store",
         body: JSON.stringify({ productId }),
       });
+
       if (response.ok) {
         const data = await response.json();
         setIsInWishlist(data.inWishlist);
@@ -222,6 +228,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               fill
               className="object-cover group-hover:scale-105 transition-transform duration-500"
             />
+
             <div className="absolute top-3 left-3 flex flex-col gap-2">
               {product.isNew && (
                 <div className="flex items-center gap-1 bg-champagne text-ivory text-xs font-medium px-3 py-1 rounded-full">
@@ -241,11 +248,13 @@ export default function ProductCard({ product }: ProductCardProps) {
                 </div>
               )}
             </div>
+
             {product.stock === 0 && (
               <div className="absolute top-3 left-3 bg-graphite/90 text-ivory text-xs font-medium px-3 py-1 rounded-full">
                 Sin stock
               </div>
             )}
+
             <button
               onClick={handleToggleWishlist}
               className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-all ${
@@ -257,6 +266,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             >
               <Heart className={`h-4 w-4 ${isInWishlist ? "fill-current" : ""}`} />
             </button>
+
             {product.stock > 0 && product.stock <= 5 && !isLowStock && (
               <div className="absolute bottom-3 left-3 bg-white/90 text-graphite text-xs font-medium px-3 py-1 rounded-full">
                 En stock • 24-48h
@@ -297,6 +307,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               disabled={isAdding || product.stock === 0}
               className="w-full px-4 py-2.5 bg-champagne text-ivory rounded-lg hover:bg-opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
               aria-label="Añadir al carrito"
+              type="button"
             >
               {product.stock === 0 ? "Sin stock" : isAdding ? "Añadiendo..." : "Añadir al carrito"}
             </button>
@@ -306,6 +317,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               disabled={isBuying || product.stock === 0}
               className="w-full px-4 py-2.5 bg-graphite text-ivory rounded-lg hover:bg-opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
               aria-label="Comprar ahora"
+              type="button"
             >
               {isBuying ? "Procesando..." : "Comprar ahora"}
             </button>
