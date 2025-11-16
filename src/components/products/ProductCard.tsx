@@ -1,4 +1,3 @@
-// src/components/products/ProductCard.tsx
 "use client";
 
 import { motion } from "framer-motion";
@@ -9,6 +8,8 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { trackAddToCart } from "@/lib/analytics";
+
+const CART_EVENT = "cart:updated";
 
 interface ProductCardProps {
   product: {
@@ -33,10 +34,9 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [isBuying, setIsBuying] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
 
-  // Normaliza id a número por si viene como string
   const productId = Number(product.id);
 
-  // Parse imágenes (primera imagen o placeholder)
+  // Imagen
   let imageUrl = "/images/products/placeholder-watch.webp";
   if (product.images) {
     if (typeof product.images === "string") {
@@ -51,70 +51,70 @@ export default function ProductCard({ product }: ProductCardProps) {
     }
   }
 
-  // Comprobar wishlist al montar (si hay sesión)
+  // Wishlist
   useEffect(() => {
     const checkWishlist = async () => {
       const token = localStorage.getItem("bearer_token");
       if (!token) return;
-
       try {
         const response = await fetch("/api/wishlist/get", {
           headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
+          cache: "no-store",
         });
         if (!response.ok) return;
         const wishlist = await response.json();
         const inWishlist = wishlist.some((item: any) => item.productId === productId);
         setIsInWishlist(inWishlist);
-      } catch {
-        /* noop */
-      }
+      } catch { /* noop */ }
     };
     checkWishlist();
   }, [productId]);
 
+  const ensureSessionId = () => {
+    let sessionId = localStorage.getItem("guest_session_id");
+    if (!sessionId) {
+      sessionId = `guest_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      localStorage.setItem("guest_session_id", sessionId);
+    }
+    return sessionId;
+  };
+
+  const buildAuthHeaders = () => {
+    const token = localStorage.getItem("bearer_token");
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    } else {
+      headers["X-Session-Id"] = ensureSessionId();
+    }
+    return headers;
+  };
+
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-
-    if (!productId || Number.isNaN(productId)) {
-      toast.error("Producto inválido");
-      return;
-    }
-    if (product.stock === 0) {
-      toast.error("Producto sin stock");
-      return;
-    }
+    if (!productId || Number.isNaN(productId)) return toast.error("Producto inválido");
+    if (product.stock === 0) return toast.error("Producto sin stock");
 
     setIsAdding(true);
     try {
       const token = localStorage.getItem("bearer_token");
-      let sessionId = localStorage.getItem("guest_session_id");
-
-      if (!token && !sessionId) {
-        sessionId = `guest_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-        localStorage.setItem("guest_session_id", sessionId);
-      }
-
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      } else if (sessionId) {
-        // 🔑 IMPORTANTE: enviar también por CABECERA para el backend
-        headers["X-Session-Id"] = sessionId;
-      }
+      const sessionId = token ? null : ensureSessionId();
 
       const res = await fetch("/api/cart/add", {
         method: "POST",
-        headers,
+        headers: buildAuthHeaders(),
+        credentials: "include",
+        cache: "no-store",
         body: JSON.stringify({
           productId,
           quantity: 1,
-          // Lo mantenemos también en el body por si lo usas en algún middleware
-          sessionId: !token ? sessionId : undefined,
+          sessionId: sessionId || undefined, // body opcional para guests
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Error al añadir al carrito");
 
       toast.success("Añadido al carrito");
@@ -127,11 +127,10 @@ export default function ProductCard({ product }: ProductCardProps) {
         quantity: 1,
       });
 
-      // Usa el mismo evento que escuchará el CartContext
-      window.dispatchEvent(new CustomEvent("cart:updated"));
+      window.dispatchEvent(new Event(CART_EVENT));
     } catch (err: any) {
-      toast.error(err?.message || "Error al añadir al carrito");
       console.error(err);
+      toast.error(err?.message || "Error al añadir al carrito");
     } finally {
       setIsAdding(false);
     }
@@ -140,52 +139,36 @@ export default function ProductCard({ product }: ProductCardProps) {
   const handleBuyNow = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-
-    if (!productId || Number.isNaN(productId)) {
-      toast.error("Producto inválido");
-      return;
-    }
-    if (product.stock === 0) {
-      toast.error("Producto sin stock");
-      return;
-    }
+    if (!productId || Number.isNaN(productId)) return toast.error("Producto inválido");
+    if (product.stock === 0) return toast.error("Producto sin stock");
 
     setIsBuying(true);
     try {
       const token = localStorage.getItem("bearer_token");
-      let sessionId = localStorage.getItem("guest_session_id");
+      const sessionId = token ? null : ensureSessionId();
 
-      if (!token && !sessionId) {
-        sessionId = `guest_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-        localStorage.setItem("guest_session_id", sessionId);
-      }
-
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      } else if (sessionId) {
-        // 🔑 IMPORTANTE para invitados
-        headers["X-Session-Id"] = sessionId;
-      }
-
+      // 1) añade (espera a que termine)
       const res = await fetch("/api/cart/add", {
         method: "POST",
-        headers,
+        headers: buildAuthHeaders(),
+        credentials: "include",
+        cache: "no-store",
         body: JSON.stringify({
           productId,
           quantity: 1,
-          sessionId: !token ? sessionId : undefined,
+          sessionId: sessionId || undefined,
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Error al procesar la compra");
 
-      window.dispatchEvent(new CustomEvent("cart:updated"));
-      router.push("/carrito");
+      // 2) refresca y navega a /pagar
+      window.dispatchEvent(new Event(CART_EVENT));
+      router.push("/pagar");
     } catch (err: any) {
-      toast.error(err?.message || "Error al procesar la compra");
       console.error(err);
+      toast.error(err?.message || "Error al procesar la compra");
     } finally {
       setIsBuying(false);
     }
@@ -194,23 +177,19 @@ export default function ProductCard({ product }: ProductCardProps) {
   const handleToggleWishlist = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-
     const token = localStorage.getItem("bearer_token");
     if (!token) {
       toast.error("Debes iniciar sesión para usar favoritos");
       return;
     }
-
     try {
       const response = await fetch("/api/wishlist/toggle", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        credentials: "include",
+        cache: "no-store",
         body: JSON.stringify({ productId }),
       });
-
       if (response.ok) {
         const data = await response.json();
         setIsInWishlist(data.inWishlist);
@@ -235,7 +214,6 @@ export default function ProductCard({ product }: ProductCardProps) {
       className="group"
     >
       <div className="bg-white rounded-lg border border-pearl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300">
-        {/* Image */}
         <Link href={`/productos/${product.slug}`} className="block">
           <div className="relative aspect-square bg-pearl overflow-hidden">
             <Image
@@ -244,8 +222,6 @@ export default function ProductCard({ product }: ProductCardProps) {
               fill
               className="object-cover group-hover:scale-105 transition-transform duration-500"
             />
-
-            {/* Badges */}
             <div className="absolute top-3 left-3 flex flex-col gap-2">
               {product.isNew && (
                 <div className="flex items-center gap-1 bg-champagne text-ivory text-xs font-medium px-3 py-1 rounded-full">
@@ -265,15 +241,11 @@ export default function ProductCard({ product }: ProductCardProps) {
                 </div>
               )}
             </div>
-
-            {/* Stock Out Badge */}
             {product.stock === 0 && (
               <div className="absolute top-3 left-3 bg-graphite/90 text-ivory text-xs font-medium px-3 py-1 rounded-full">
                 Sin stock
               </div>
             )}
-
-            {/* Wishlist Button */}
             <button
               onClick={handleToggleWishlist}
               className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-all ${
@@ -285,8 +257,6 @@ export default function ProductCard({ product }: ProductCardProps) {
             >
               <Heart className={`h-4 w-4 ${isInWishlist ? "fill-current" : ""}`} />
             </button>
-
-            {/* Stock Status */}
             {product.stock > 0 && product.stock <= 5 && !isLowStock && (
               <div className="absolute bottom-3 left-3 bg-white/90 text-graphite text-xs font-medium px-3 py-1 rounded-full">
                 En stock • 24-48h
@@ -300,7 +270,6 @@ export default function ProductCard({ product }: ProductCardProps) {
           </div>
         </Link>
 
-        {/* Content */}
         <div className="p-4">
           <Link href={`/productos/${product.slug}`}>
             <div className="mb-2">
@@ -314,20 +283,14 @@ export default function ProductCard({ product }: ProductCardProps) {
             </div>
           </Link>
 
-        {product.description && (
-            <p className="text-sm text-graphite/70 mb-3 line-clamp-2">
-              {product.description}
-            </p>
+          {product.description && (
+            <p className="text-sm text-graphite/70 mb-3 line-clamp-2">{product.description}</p>
           )}
 
-          {/* Price */}
           <div className="mb-4">
-            <p className="text-2xl font-bold text-champagne">
-              {product.price.toFixed(2)} €
-            </p>
+            <p className="text-2xl font-bold text-champagne">{product.price.toFixed(2)} €</p>
           </div>
 
-          {/* Action Buttons */}
           <div className="space-y-2">
             <button
               onClick={handleAddToCart}
@@ -347,7 +310,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               {isBuying ? "Procesando..." : "Comprar ahora"}
             </button>
 
-            <Link 
+            <Link
               href={`/productos/${product.slug}`}
               className="block w-full text-center text-sm text-graphite hover:text-champagne transition-colors underline-offset-2 hover:underline py-1"
             >
