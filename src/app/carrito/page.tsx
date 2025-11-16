@@ -1,3 +1,4 @@
+// src/app/carrito/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -8,26 +9,41 @@ import { useCart } from "@/contexts/CartContext";
 import { useSession } from "@/lib/auth-client";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Minus, Plus, Trash2, ShoppingBag, Loader2, Tag, X, Shield, Truck, CreditCard, FileText, ArrowRight } from "lucide-react";
+import {
+  Minus,
+  Plus,
+  Trash2,
+  ShoppingBag,
+  Loader2,
+  Tag,
+  X,
+  Shield,
+  Truck,
+  CreditCard,
+  FileText,
+  ArrowRight,
+} from "lucide-react";
 import { toast } from "sonner";
-import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
-import { trackBeginCheckout, trackPurchase } from "@/lib/analytics";
+import { trackBeginCheckout } from "@/lib/analytics";
 
 const STANDARD_SHIPPING = 19.99;
 
 export default function CarritoPage() {
   const router = useRouter();
   const { data: session } = useSession();
-  const { items, subtotal, updateQuantity, removeItem, clearCart } = useCart();
+
+  // Cart context
+  const { items, subtotal, updateQuantity, removeItem } = useCart();
+
+  // Discounts & shipping (local UI state)
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
   const [discount, setDiscount] = useState(0);
   const [shippingCost, setShippingCost] = useState(STANDARD_SHIPPING);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [checkoutTracked, setCheckoutTracked] = useState(false);
-  
-  // Shipping form
+
+  // Shipping form (solo para pre-rellenar en /pagar; aquí no enviamos nada)
   const [shippingForm, setShippingForm] = useState({
     name: session?.user?.name || "",
     email: session?.user?.email || "",
@@ -37,9 +53,6 @@ export default function CarritoPage() {
     postalCode: "",
     country: "España",
   });
-
-  const total = subtotal - discount + shippingCost;
-  const hasFreeShipping = appliedCoupon?.code === "WELCOME5";
 
   useEffect(() => {
     if (session?.user) {
@@ -51,9 +64,10 @@ export default function CarritoPage() {
     }
   }, [session]);
 
-  // Track begin_checkout when user views checkout page
+  // Track begin_checkout al llegar con items
   useEffect(() => {
     if (items.length > 0 && !checkoutTracked) {
+      const total = subtotal - discount + shippingCost;
       trackBeginCheckout(
         items.map((item) => ({
           id: item.productId,
@@ -67,33 +81,34 @@ export default function CarritoPage() {
       );
       setCheckoutTracked(true);
     }
-  }, [items, total, checkoutTracked]);
+  }, [items, subtotal, discount, shippingCost, checkoutTracked]);
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) return;
 
     setValidatingCoupon(true);
     try {
-      const token = localStorage.getItem("bearer_token");
-      const headers: any = { "Content-Type": "application/json" };
+      const token = typeof window !== "undefined" ? localStorage.getItem("bearer_token") : null;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers.Authorization = `Bearer ${token}`;
 
-      const response = await fetch("/api/coupons/validate", {
+      const res = await fetch("/api/coupons/validate", {
         method: "POST",
         headers,
+        credentials: "include",
+        cache: "no-store",
         body: JSON.stringify({
           code: couponCode,
           subtotal,
-          email: shippingForm.email,
+          email: shippingForm.email || "",
         }),
       });
 
-      const data = await response.json();
+      const data = await res.json();
 
-      if (response.ok && data.valid) {
+      if (res.ok && data.valid) {
         setAppliedCoupon(data.coupon);
         setDiscount(data.discountAmount);
-        
         if (data.coupon.code === "WELCOME5") {
           setShippingCost(0);
           toast.success(`Cupón aplicado: -${data.discountAmount.toFixed(2)} € + Envío gratis`);
@@ -103,7 +118,7 @@ export default function CarritoPage() {
       } else {
         toast.error(data.message || "Cupón no válido");
       }
-    } catch (error) {
+    } catch {
       toast.error("Error al validar cupón");
     } finally {
       setValidatingCoupon(false);
@@ -118,122 +133,10 @@ export default function CarritoPage() {
     toast.success("Cupón eliminado");
   };
 
-  const validateShippingForm = () => {
-    const required = ["name", "email", "phone", "address", "city", "postalCode"];
-    for (const field of required) {
-      if (!shippingForm[field as keyof typeof shippingForm]) {
-        toast.error(`Por favor completa: ${field}`);
-        return false;
-      }
-    }
-    return true;
-  };
+  const total = subtotal - discount + shippingCost;
+  const hasFreeShipping = appliedCoupon?.code === "WELCOME5";
 
-  const createOrder = async () => {
-    if (!validateShippingForm()) {
-      throw new Error("Complete shipping form");
-    }
-
-    setIsProcessing(true);
-    try {
-      const token = localStorage.getItem("bearer_token");
-      const sessionId = localStorage.getItem("guest_session_id");
-
-      const headers: any = { "Content-Type": "application/json" };
-      if (token) headers.Authorization = `Bearer ${token}`;
-      else if (sessionId) headers["X-Session-Id"] = sessionId;
-
-      const orderData = {
-        items: items.map((item) => ({
-          name: `${item.brand} ${item.name}`,
-          quantity: item.quantity,
-          unitAmount: item.price.toFixed(2),
-        })),
-        shippingAmount: shippingCost.toFixed(2),
-        totalAmount: total.toFixed(2),
-        currency: "EUR",
-      };
-
-      const response = await fetch("/api/orders/create-paypal", {
-        method: "POST",
-        headers,
-        body: JSON.stringify(orderData),
-      });
-
-      if (!response.ok) throw new Error("Failed to create order");
-
-      const data = await response.json();
-      return data.orderId;
-    } catch (error) {
-      setIsProcessing(false);
-      throw error;
-    }
-  };
-
-  const onApprove = async (data: any) => {
-    try {
-      const token = localStorage.getItem("bearer_token");
-      const sessionId = localStorage.getItem("guest_session_id");
-
-      const headers: any = { "Content-Type": "application/json" };
-      if (token) headers.Authorization = `Bearer ${token}`;
-      else if (sessionId) headers["X-Session-Id"] = sessionId;
-
-      const orderData = {
-        paypalOrderId: data.orderID,
-        items: items.map((item) => ({
-          productId: item.productId,
-          productName: `${item.brand} ${item.name}`,
-          productReference: item.reference,
-          unitPrice: item.price,
-          quantity: item.quantity,
-        })),
-        subtotal,
-        discountAmount: discount,
-        shippingCost,
-        total,
-        couponCode: appliedCoupon?.code || null,
-        shippingInfo: shippingForm,
-      };
-
-      const response = await fetch("/api/orders/capture-paypal", {
-        method: "POST",
-        headers,
-        body: JSON.stringify(orderData),
-      });
-
-      if (!response.ok) throw new Error("Failed to capture order");
-
-      const result = await response.json();
-      
-      // Track purchase analytics
-      trackPurchase(
-        result.orderNumber,
-        items.map((item) => ({
-          id: item.productId,
-          name: item.name,
-          brand: item.brand,
-          reference: item.reference,
-          price: item.price,
-          quantity: item.quantity,
-        })),
-        subtotal,
-        discount,
-        total,
-        appliedCoupon?.code
-      );
-      
-      await clearCart();
-      toast.success("¡Pago completado exitosamente!");
-      
-      router.push(`/pago/exito?orderId=${result.orderNumber}`);
-    } catch (error) {
-      console.error("Error capturing order:", error);
-      toast.error("Error al procesar el pago");
-      setIsProcessing(false);
-    }
-  };
-
+  // Carrito vacío
   if (items.length === 0) {
     return (
       <div className="min-h-screen bg-ivory">
@@ -305,18 +208,24 @@ export default function CarritoPage() {
 
                   <div className="flex flex-col items-end justify-between">
                     <button
-                      onClick={() => removeItem(item.id)} {/* <- FIX: usar item.id */}
+                      onClick={() => removeItem(item.id)} {/* <- usar cart item id */}
                       className="p-2 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
                       aria-label="Eliminar producto"
+                      title="Eliminar producto"
                     >
                       <Trash2 className="h-5 w-5" />
                     </button>
 
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))} {/* <- FIX */}
+                        onClick={() => {
+                          const next = item.quantity - 1;
+                          if (next < 1) return;
+                          updateQuantity(item.id, next); // <- usar cart item id
+                        }}
                         className="w-8 h-8 flex items-center justify-center bg-pearl hover:bg-champagne hover:text-ivory rounded transition-colors"
                         aria-label="Disminuir cantidad"
+                        title="Disminuir cantidad"
                       >
                         <Minus className="h-4 w-4" />
                       </button>
@@ -324,9 +233,13 @@ export default function CarritoPage() {
                         {item.quantity}
                       </span>
                       <button
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)} {/* <- FIX */}
+                        onClick={() => {
+                          const next = item.quantity + 1;
+                          updateQuantity(item.id, next); // <- usar cart item id
+                        }}
                         className="w-8 h-8 flex items-center justify-center bg-pearl hover:bg-champagne hover:text-ivory rounded transition-colors"
                         aria-label="Aumentar cantidad"
+                        title="Aumentar cantidad"
                       >
                         <Plus className="h-4 w-4" />
                       </button>
@@ -412,7 +325,7 @@ export default function CarritoPage() {
                 </div>
                 {discount > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-green-600">Descuento ({appliedCoupon.value}%)</span>
+                    <span className="text-green-600">Descuento</span>
                     <span className="font-medium text-green-600">-{discount.toFixed(2)} €</span>
                   </div>
                 )}
@@ -426,9 +339,7 @@ export default function CarritoPage() {
                     )}
                   </span>
                 </div>
-                <div className="text-xs text-graphite/60">
-                  IVA incluido en el precio final
-                </div>
+                <div className="text-xs text-graphite/60">IVA incluido en el precio final</div>
               </div>
 
               <div className="flex justify-between items-center mb-6">
@@ -436,94 +347,14 @@ export default function CarritoPage() {
                 <span className="text-2xl font-bold text-champagne">{total.toFixed(2)} €</span>
               </div>
 
-              {/* Shipping Form */}
-              <div className="mb-6 space-y-3">
-                <h3 className="font-medium text-graphite mb-3">Información de envío</h3>
-                <input
-                  type="text"
-                  placeholder="Nombre completo"
-                  value={shippingForm.name}
-                  onChange={(e) => setShippingForm({ ...shippingForm, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-pearl rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-champagne/50"
-                />
-                <input
-                  type="email"
-                  placeholder="Email"
-                  value={shippingForm.email}
-                  onChange={(e) => setShippingForm({ ...shippingForm, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-pearl rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-champagne/50"
-                />
-                <input
-                  type="tel"
-                  placeholder="Teléfono"
-                  value={shippingForm.phone}
-                  onChange={(e) => setShippingForm({ ...shippingForm, phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-pearl rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-champagne/50"
-                />
-                <input
-                  type="text"
-                  placeholder="Dirección"
-                  value={shippingForm.address}
-                  onChange={(e) => setShippingForm({ ...shippingForm, address: e.target.value })}
-                  className="w-full px-3 py-2 border border-pearl rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-champagne/50"
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    placeholder="Ciudad"
-                    value={shippingForm.city}
-                    onChange={(e) => setShippingForm({ ...shippingForm, city: e.target.value })}
-                    className="w-full px-3 py-2 border border-pearl rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-champagne/50"
-                  />
-                  <input
-                    type="text"
-                    placeholder="CP"
-                    value={shippingForm.postalCode}
-                    onChange={(e) => setShippingForm({ ...shippingForm, postalCode: e.target.value })}
-                    className="w-full px-3 py-2 border border-pearl rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-champagne/50"
-                  />
-                </div>
-              </div>
-
-              {/* CTA Button */}
+              {/* CTA: ir a pagar */}
               <button
-                onClick={() => {
-                  if (validateShippingForm()) {
-                    const paypalButton = document.querySelector('[data-funding-source="paypal"]') as HTMLElement;
-                    if (paypalButton) {
-                      paypalButton.click();
-                    }
-                  }
-                }}
+                onClick={() => router.push("/pagar")}
                 className="w-full mb-4 py-4 bg-champagne text-ivory font-medium text-lg rounded-lg hover:bg-opacity-90 transition-all flex items-center justify-center gap-2"
               >
                 Ir a pagar
                 <ArrowRight className="h-5 w-5" />
               </button>
-
-              {/* PayPal Buttons */}
-              <PayPalScriptProvider
-                options={{
-                  clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID!,
-                  currency: "EUR",
-                  intent: "capture",
-                }}
-              >
-                <div className="mb-4">
-                  <PayPalButtons
-                    createOrder={createOrder}
-                    onApprove={onApprove}
-                    disabled={isProcessing}
-                    style={{
-                      layout: "vertical",
-                      color: "gold",
-                      shape: "rect",
-                      label: "checkout",
-                      height: 45,
-                    }}
-                  />
-                </div>
-              </PayPalScriptProvider>
 
               {/* Trust Badges */}
               <div className="pt-4 border-t border-pearl">
