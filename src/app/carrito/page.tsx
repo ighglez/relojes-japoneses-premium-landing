@@ -1,7 +1,6 @@
-// src/app/carrito/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
@@ -9,106 +8,45 @@ import { useCart } from "@/contexts/CartContext";
 import { useSession } from "@/lib/auth-client";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import {
-  Minus,
-  Plus,
-  Trash2,
-  ShoppingBag,
-  Loader2,
-  Tag,
-  X,
-  Shield,
-  Truck,
-  CreditCard,
-  FileText,
-  ArrowRight,
-} from "lucide-react";
+import { Minus, Plus, ShoppingBag, Loader2, X, ShoppingCart, ChevronRight, ArrowLeft, ArrowRight, Shield, Truck, CreditCard } from "lucide-react";
 import { toast } from "sonner";
-import { trackBeginCheckout } from "@/lib/analytics";
+import Link from "next/link";
 
 const STANDARD_SHIPPING = 19.99;
 
 export default function CarritoPage() {
   const router = useRouter();
   const { data: session } = useSession();
-
-  // Cart context
-  const { items, subtotal, updateQuantity, removeItem } = useCart();
-
-  // Discounts & shipping (local UI state)
+  const { items, subtotal, updateQuantity, removeItem, clearCart, isLoading } = useCart();
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
   const [discount, setDiscount] = useState(0);
   const [shippingCost, setShippingCost] = useState(STANDARD_SHIPPING);
-  const [checkoutTracked, setCheckoutTracked] = useState(false);
-
-  // Shipping form (solo para pre-rellenar en /pagar; aquí no enviamos nada)
-  const [shippingForm, setShippingForm] = useState({
-    name: session?.user?.name || "",
-    email: session?.user?.email || "",
-    phone: "",
-    address: "",
-    city: "",
-    postalCode: "",
-    country: "España",
-  });
-
-  useEffect(() => {
-    if (session?.user) {
-      setShippingForm((prev) => ({
-        ...prev,
-        name: session.user.name || prev.name,
-        email: session.user.email || prev.email,
-      }));
-    }
-  }, [session]);
-
-  // Track begin_checkout al llegar con items
-  useEffect(() => {
-    if (items.length > 0 && !checkoutTracked) {
-      const total = subtotal - discount + shippingCost;
-      trackBeginCheckout(
-        items.map((item) => ({
-          id: item.productId,
-          name: item.name,
-          brand: item.brand,
-          reference: item.reference,
-          price: item.price,
-          quantity: item.quantity,
-        })),
-        total
-      );
-      setCheckoutTracked(true);
-    }
-  }, [items, subtotal, discount, shippingCost, checkoutTracked]);
+  
+  const total = subtotal - discount + shippingCost;
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) return;
 
     setValidatingCoupon(true);
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("bearer_token") : null;
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) headers.Authorization = `Bearer ${token}`;
-
-      const res = await fetch("/api/coupons/validate", {
+      const response = await fetch("/api/coupons/validate", {
         method: "POST",
-        headers,
-        credentials: "include",
-        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code: couponCode,
           subtotal,
-          email: shippingForm.email || "",
+          email: session?.user?.email || "",
         }),
       });
 
-      const data = await res.json();
+      const data = await response.json();
 
-      if (res.ok && data.valid) {
+      if (response.ok && data.valid) {
         setAppliedCoupon(data.coupon);
         setDiscount(data.discountAmount);
+        
         if (data.coupon.code === "WELCOME5") {
           setShippingCost(0);
           toast.success(`Cupón aplicado: -${data.discountAmount.toFixed(2)} € + Envío gratis`);
@@ -118,7 +56,7 @@ export default function CarritoPage() {
       } else {
         toast.error(data.message || "Cupón no válido");
       }
-    } catch {
+    } catch (error) {
       toast.error("Error al validar cupón");
     } finally {
       setValidatingCoupon(false);
@@ -133,29 +71,40 @@ export default function CarritoPage() {
     toast.success("Cupón eliminado");
   };
 
-  const total = subtotal - discount + shippingCost;
-  const hasFreeShipping = appliedCoupon?.code === "WELCOME5";
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col">
+        <Navigation />
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="h-10 w-10 animate-spin text-champagne" />
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
-  // Carrito vacío
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-ivory">
+      <div className="min-h-screen bg-white">
         <Navigation />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <div className="text-center">
-            <ShoppingBag className="h-24 w-24 text-graphite/20 mx-auto mb-6" />
-            <h1 className="font-heading text-3xl font-medium text-graphite mb-4">
+          <div className="text-center max-w-md mx-auto">
+            <div className="bg-ivory h-32 w-32 rounded-full flex items-center justify-center mx-auto mb-8 shadow-inner">
+              <ShoppingBag className="h-12 w-12 text-graphite/20" />
+            </div>
+            <h1 className="font-heading text-3xl font-semibold text-graphite mb-4">
               Tu carrito está vacío
             </h1>
-            <p className="text-graphite/60 mb-8">
-              Explora nuestra colección y añade productos
+            <p className="text-graphite/50 mb-10 leading-relaxed">
+              Descubre nuestra exclusiva colección de relojes y encuentra la pieza perfecta para tu estilo.
             </p>
-            <button
-              onClick={() => router.push("/productos")}
-              className="px-8 py-3 bg-champagne text-ivory font-medium rounded-lg hover:bg-opacity-90 transition-all"
+            <Link
+              href="/productos"
+              className="inline-flex items-center gap-2 px-10 py-4 bg-graphite text-ivory font-bold rounded-lg hover:bg-black transition-all uppercase tracking-[0.15em] text-xs shadow-lg shadow-graphite/10"
             >
-              Ver productos
-            </button>
+              <ArrowLeft className="h-4 w-4" />
+              Explorar Tienda
+            </Link>
           </div>
         </main>
         <Footer />
@@ -164,216 +113,213 @@ export default function CarritoPage() {
   }
 
   return (
-    <div className="min-h-screen bg-ivory">
+    <div className="min-h-screen bg-white">
       <Navigation />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <motion.h1
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="font-heading text-4xl font-medium text-graphite mb-8"
-        >
-          Tu carrito
-        </motion.h1>
+        {/* Page Header */}
+        <div className="mb-12">
+          <h1 className="font-heading text-4xl font-semibold text-graphite mb-2 uppercase tracking-widest">Carrito</h1>
+          <nav className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-graphite/40">
+            <Link href="/" className="hover:text-champagne transition-colors">Inicio</Link>
+            <ChevronRight className="h-3 w-3" />
+            <Link href="/productos" className="hover:text-champagne transition-colors">Tienda</Link>
+            <ChevronRight className="h-3 w-3" />
+            <span className="text-graphite">Cesta</span>
+          </nav>
+        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Cart Items */}
-          <div className="lg:col-span-2 space-y-4">
-            {items.map((item) => (
-              <motion.div
-                key={item.id}
-                layout
-                className="bg-white rounded-lg border border-pearl p-6"
-              >
-                <div className="flex gap-6">
-                  <div className="relative w-24 h-24 bg-pearl rounded-lg flex-shrink-0 overflow-hidden">
-                    {item.imageUrl ? (
-                      <Image src={item.imageUrl} alt={item.name} fill className="object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <ShoppingBag className="h-10 w-10 text-graphite/30" />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex-1">
-                    <h3 className="font-heading text-lg font-medium text-graphite mb-1">
-                      {item.brand} {item.name}
-                    </h3>
-                    <p className="text-sm text-graphite/60 mb-3">Ref: {item.reference}</p>
-                    <p className="text-xl font-bold text-champagne">
-                      {(item.price * item.quantity).toFixed(2)} €
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col items-end justify-between">
-                    <button
-                      onClick={() => removeItem(item.id)}
-                      className="p-2 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
-                      aria-label="Eliminar producto"
-                      title="Eliminar producto"
-                    >
-                      <Trash2 className="h-5 w-5" />
-                    </button>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          const next = item.quantity - 1;
-                          if (next < 1) return;
-                          updateQuantity(item.id, next);
-                        }}
-                        className="w-8 h-8 flex items-center justify-center bg-pearl hover:bg-champagne hover:text-ivory rounded transition-colors"
-                        aria-label="Disminuir cantidad"
-                        title="Disminuir cantidad"
-                      >
-                        <Minus className="h-4 w-4" />
-                      </button>
-                      <span className="text-sm font-medium text-graphite w-8 text-center">
-                        {item.quantity}
-                      </span>
-                      <button
-                        onClick={() => {
-                          const next = item.quantity + 1;
-                          updateQuantity(item.id, next);
-                        }}
-                        className="w-8 h-8 flex items-center justify-center bg-pearl hover:bg-champagne hover:text-ivory rounded transition-colors"
-                        aria-label="Aumentar cantidad"
-                        title="Aumentar cantidad"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
+        <div className="flex flex-col lg:flex-row gap-12">
+          {/* Main Cart Items Table */}
+          <div className="lg:w-2/3">
+            <div className="border border-pearl rounded-xl overflow-hidden shadow-sm">
+              <div className="bg-ivory/50 flex justify-end p-4 border-b border-pearl">
+                <button 
+                  onClick={() => {
+                    if (confirm("¿Estás seguro de que deseas vaciar el carrito?")) {
+                      clearCart();
+                    }
+                  }}
+                  className="text-graphite/40 hover:text-red-500 text-[10px] font-bold px-4 py-2 flex items-center gap-2 uppercase tracking-widest transition-colors"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Vaciar carrito
+                </button>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-pearl bg-white text-[10px] font-bold text-graphite/40 uppercase tracking-[0.15em]">
+                      <th className="p-6 w-10"></th>
+                      <th className="p-6">Producto</th>
+                      <th className="p-6 text-center">Precio</th>
+                      <th className="p-6 text-center">Cantidad</th>
+                      <th className="p-6 text-right">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item) => (
+                      <tr key={item.id} className="border-b border-pearl/50 hover:bg-ivory/20 transition-colors">
+                        <td className="p-6 text-center">
+                          <button 
+                            onClick={() => removeItem(item.id)}
+                            className="text-graphite/20 hover:text-red-500 transition-colors"
+                            aria-label="Eliminar producto"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </td>
+                        <td className="p-6">
+                          <div className="flex items-center gap-6">
+                            <div className="relative w-20 h-20 flex-shrink-0 bg-ivory rounded-lg overflow-hidden border border-pearl">
+                              <Image 
+                                src={item.imageUrl || "/images/products/placeholder-watch.webp"} 
+                                alt={item.name} 
+                                fill 
+                                className="object-cover" 
+                              />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <p className="text-[10px] text-champagne font-bold uppercase tracking-widest">{item.brand}</p>
+                              <Link href={`/productos/${item.productId}`} className="text-sm font-semibold text-graphite hover:text-champagne transition-colors">
+                                {item.name}
+                              </Link>
+                              <p className="text-[10px] text-graphite/40 font-mono">REF: {item.reference}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-6 text-center">
+                          <span className="text-xs font-medium text-graphite">
+                            {item.price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                          </span>
+                        </td>
+                        <td className="p-6">
+                          <div className="flex items-center justify-center border border-pearl rounded-lg bg-white overflow-hidden max-w-[100px] mx-auto shadow-sm">
+                            <button
+                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                              className="px-2 py-2 text-graphite/40 hover:bg-ivory transition-colors"
+                              disabled={item.quantity <= 1}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </button>
+                            <span className="flex-1 text-center text-xs font-bold text-graphite min-w-[30px]">
+                              {item.quantity}
+                            </span>
+                            <button
+                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                              className="px-2 py-2 text-graphite/40 hover:bg-ivory transition-colors"
+                            >
+                              <Plus className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </td>
+                        <td className="p-6 text-right">
+                          <span className="text-xs font-bold text-graphite">
+                            {(item.price * item.quantity).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              <div className="p-8 flex flex-col md:flex-row gap-6 justify-between bg-white border-t border-pearl">
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value)}
+                    placeholder="CÓDIGO DE CUPÓN"
+                    className="border border-pearl bg-ivory/30 px-6 py-3 rounded-lg text-[10px] font-bold tracking-widest w-full md:w-[200px] focus:outline-none focus:ring-2 focus:ring-champagne/20 transition-all uppercase"
+                  />
+                  <button
+                    onClick={handleApplyCoupon}
+                    disabled={validatingCoupon}
+                    className="bg-graphite text-ivory font-bold px-8 py-3 rounded-lg text-[10px] uppercase tracking-widest hover:bg-black transition-all disabled:opacity-50"
+                  >
+                    {validatingCoupon ? "..." : "Aplicar"}
+                  </button>
                 </div>
-              </motion.div>
-            ))}
-
-            <div className="flex justify-between items-center pt-4">
-              <button
-                onClick={() => router.push("/productos")}
-                className="text-sm text-graphite hover:text-champagne transition-colors flex items-center gap-2"
-              >
-                ← Seguir comprando
-              </button>
+                <button
+                  onClick={() => router.refresh()}
+                  className="border-2 border-pearl text-graphite/60 font-bold px-10 py-3 rounded-lg text-[10px] uppercase tracking-widest hover:bg-ivory hover:text-graphite transition-all"
+                >
+                  Actualizar carrito
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Checkout Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg border border-pearl p-6 sticky top-24">
-              <h2 className="font-heading text-xl font-medium text-graphite mb-6">
+          {/* Sidebar Summary */}
+          <div className="lg:w-1/3">
+            <div className="border border-pearl rounded-xl bg-ivory/20 p-8 shadow-sm">
+              <h2 className="font-heading text-2xl font-semibold text-graphite mb-8 uppercase tracking-widest border-b border-pearl pb-4">
                 Resumen del pedido
               </h2>
-
-              {/* Coupon */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-graphite mb-2">
-                  Código de descuento
-                </label>
-                {appliedCoupon ? (
-                  <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-3">
-                    <div className="flex items-center gap-2">
-                      <Tag className="h-4 w-4 text-green-600" />
-                      <div>
-                        <span className="text-sm font-medium text-green-700 block">
-                          {appliedCoupon.code}
-                        </span>
-                        {appliedCoupon.code === "WELCOME5" && (
-                          <span className="text-xs text-green-600">
-                            5% descuento + Envío gratis
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      onClick={handleRemoveCoupon}
-                      className="p-1 hover:bg-green-100 rounded"
-                      aria-label="Eliminar cupón"
-                    >
-                      <X className="h-4 w-4 text-green-600" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={couponCode}
-                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                      placeholder="WELCOME5"
-                      className="flex-1 px-3 py-2 border border-pearl rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-champagne/50"
-                    />
-                    <button
-                      onClick={handleApplyCoupon}
-                      disabled={validatingCoupon || !couponCode.trim()}
-                      className="px-4 py-2 bg-graphite text-ivory text-sm font-medium rounded-lg hover:bg-graphite/90 transition-all disabled:opacity-50"
-                    >
-                      {validatingCoupon ? <Loader2 className="h-4 w-4 animate-spin" /> : "Aplicar"}
-                    </button>
-                  </div>
-                )}
-                <p className="text-xs text-graphite/60 mt-2">
-                  Usa <span className="font-semibold">WELCOME5</span> para 5% de descuento + envío gratis
-                </p>
-              </div>
-
-              {/* Pricing */}
-              <div className="space-y-3 mb-6 pb-6 border-b border-pearl">
-                <div className="flex justify-between text-sm">
-                  <span className="text-graphite/70">Subtotal</span>
-                  <span className="font-medium text-graphite">{subtotal.toFixed(2)} €</span>
-                </div>
-                {discount > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-green-600">Descuento</span>
-                    <span className="font-medium text-green-600">-{discount.toFixed(2)} €</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-sm">
-                  <span className="text-graphite/70">Envío</span>
-                  <span className="font-medium text-graphite">
-                    {hasFreeShipping ? (
-                      <span className="text-green-600">Gratis</span>
-                    ) : (
-                      `${shippingCost.toFixed(2)} €`
-                    )}
+              
+              <div className="space-y-6">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-graphite/40 font-bold uppercase tracking-widest text-[10px]">Subtotal</span>
+                  <span className="text-graphite font-semibold">
+                    {subtotal.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                   </span>
                 </div>
-                <div className="text-xs text-graphite/60">IVA incluido en el precio final</div>
-              </div>
-
-              <div className="flex justify-between items-center mb-6">
-                <span className="text-lg font-medium text-graphite">Total</span>
-                <span className="text-2xl font-bold text-champagne">{total.toFixed(2)} €</span>
-              </div>
-
-              {/* CTA: ir a pagar */}
-              <button
-                onClick={() => router.push("/pagar")}
-                className="w-full mb-4 py-4 bg-champagne text-ivory font-medium text-lg rounded-lg hover:bg-opacity-90 transition-all flex items-center justify-center gap-2"
-              >
-                Ir a pagar
-                <ArrowRight className="h-5 w-5" />
-              </button>
-
-              {/* Trust Badges */}
-              <div className="pt-4 border-t border-pearl">
-                <div className="grid grid-cols-2 gap-3 text-xs text-graphite/70">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-champagne" />
-                    <span>Pago seguro</span>
+                
+                {appliedCoupon && (
+                  <div className="flex justify-between items-center text-sm p-3 bg-champagne/10 rounded-lg border border-champagne/20">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-champagne font-bold uppercase tracking-widest text-[10px]">Cupón: {appliedCoupon.code}</span>
+                      <button onClick={handleRemoveCoupon} className="text-[10px] text-graphite/40 hover:text-graphite underline text-left">Eliminar</button>
+                    </div>
+                    <span className="text-champagne font-bold">
+                      -{discount.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Truck className="h-4 w-4 text-champagne" />
-                    <span>Envío asegurado</span>
+                )}
+                
+                <div className="space-y-3 pt-6 border-t border-pearl">
+                  <div className="flex justify-between items-center">
+                    <span className="text-graphite/40 font-bold uppercase tracking-widest text-[10px]">Envío (Tarifa plana)</span>
+                    <span className="text-graphite font-semibold text-sm">
+                      {shippingCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-champagne" />
-                    <span>Autenticidad garantizada</span>
+                  <p className="text-[10px] text-graphite/40 uppercase tracking-widest leading-relaxed">
+                    Entrega asegurada en 24-48 horas laborables (Península y Baleares).
+                  </p>
+                </div>
+                
+                <div className="pt-8 border-t-2 border-pearl">
+                  <div className="flex justify-between items-end mb-8">
+                    <span className="text-graphite font-bold uppercase tracking-widest text-xs">Total</span>
+                    <span className="text-3xl font-bold text-graphite">
+                      {total.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-champagne" />
-                    <span>Factura emitida</span>
+                  
+                  <button
+                    onClick={() => router.push("/pagar")}
+                    className="w-full bg-graphite text-ivory font-bold py-5 rounded-lg uppercase text-xs tracking-[0.2em] hover:bg-black transition-all shadow-xl shadow-graphite/10 flex items-center justify-center gap-3 group"
+                  >
+                    Finalizar pedido
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </button>
+                </div>
+
+                <div className="pt-8 flex flex-wrap justify-center gap-6">
+                  <div className="flex flex-col items-center gap-2 opacity-30 grayscale">
+                    <Shield className="h-6 w-6" />
+                    <span className="text-[8px] font-bold uppercase tracking-widest">Seguro</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-2 opacity-30 grayscale">
+                    <Truck className="h-6 w-6" />
+                    <span className="text-[8px] font-bold uppercase tracking-widest">Exprés</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-2 opacity-30 grayscale">
+                    <CreditCard className="h-6 w-6" />
+                    <span className="text-[8px] font-bold uppercase tracking-widest">Bancario</span>
                   </div>
                 </div>
               </div>
@@ -384,5 +330,25 @@ export default function CarritoPage() {
 
       <Footer />
     </div>
+  );
+}
+
+// Helper icons missing from imports
+function Trash2({ className }: { className?: string }) {
+  return (
+    <svg 
+      xmlns="http://www.w3.org/2000/svg" 
+      width="24" 
+      height="24" 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round" 
+      className={className}
+    >
+      <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
+    </svg>
   );
 }
