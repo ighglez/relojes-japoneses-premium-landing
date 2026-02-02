@@ -8,7 +8,7 @@ import { Heart, Sparkles, Award } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { trackAddToCart } from "@/lib/analytics";
+import { useCart } from "@/contexts/CartContext";
 
 interface ProductCardProps {
   product: {
@@ -27,17 +27,17 @@ interface ProductCardProps {
   };
 }
 
-const CART_EVENT = "cart:updated";
-
 export default function ProductCard({ product }: ProductCardProps) {
   const router = useRouter();
+  const { addItem } = useCart();
   const [isAdding, setIsAdding] = useState(false);
   const [isBuying, setIsBuying] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
 
+  // Normaliza id a número por si viene como string
   const productId = Number(product.id);
 
-  // Imagen
+  // Parse images
   let imageUrl = "/images/products/placeholder-watch.webp";
   if (product.images) {
     if (typeof product.images === "string") {
@@ -52,78 +52,6 @@ export default function ProductCard({ product }: ProductCardProps) {
     }
   }
 
-  // Wishlist
-  useEffect(() => {
-    const checkWishlist = async () => {
-      const token = localStorage.getItem("bearer_token");
-      if (!token) return;
-      try {
-        const response = await fetch("/api/wishlist/get", {
-          headers: { Authorization: `Bearer ${token}` },
-          cache: "no-store",
-          credentials: "include",
-        });
-        if (!response.ok) return;
-        const wishlist = await response.json();
-        const inWishlist = wishlist.some((item: any) => item.productId === productId);
-        setIsInWishlist(inWishlist);
-      } catch {}
-    };
-    checkWishlist();
-  }, [productId]);
-
-  // Helpers
-  const ensureGuestSessionId = () => {
-    let sid = localStorage.getItem("guest_session_id");
-    if (!sid) {
-      sid = `guest_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-      localStorage.setItem("guest_session_id", sid);
-    }
-    return sid;
-  };
-
-  const addToCartRequest = async () => {
-    const token = localStorage.getItem("bearer_token");
-    let sessionId = localStorage.getItem("guest_session_id");
-    if (!token && !sessionId) sessionId = ensureGuestSessionId();
-
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    } else if (sessionId) {
-      headers["X-Session-Id"] = sessionId;
-    }
-
-    const res = await fetch("/api/cart/add", {
-      method: "POST",
-      headers,
-      cache: "no-store",
-      credentials: "include",
-      body: JSON.stringify({
-        productId,
-        quantity: 1,
-        sessionId: token ? undefined : sessionId, // redundante pero útil si hay middleware
-      }),
-    });
-
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data?.error || "Error al añadir al carrito");
-    }
-
-    // Analytics + evento global
-    trackAddToCart({
-      id: productId,
-      name: product.name,
-      brand: product.brand,
-      reference: product.reference,
-      price: product.price,
-      quantity: 1,
-    });
-    window.dispatchEvent(new Event(CART_EVENT));
-  };
-
-  // Handlers
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -139,10 +67,14 @@ export default function ProductCard({ product }: ProductCardProps) {
 
     setIsAdding(true);
     try {
-      await addToCartRequest();
-      toast.success("Añadido al carrito");
+      await addItem({
+        id: productId,
+        name: product.name,
+        brand: product.brand,
+        reference: product.reference,
+        price: product.price
+      });
     } catch (err: any) {
-      toast.error(err?.message || "Error al añadir al carrito");
       console.error(err);
     } finally {
       setIsAdding(false);
@@ -164,10 +96,15 @@ export default function ProductCard({ product }: ProductCardProps) {
 
     setIsBuying(true);
     try {
-      await addToCartRequest();
-      router.push("/pagar"); // ir directo al checkout
+      await addItem({
+        id: productId,
+        name: product.name,
+        brand: product.brand,
+        reference: product.reference,
+        price: product.price
+      });
+      router.push("/pagar");
     } catch (err: any) {
-      toast.error(err?.message || "Error al procesar la compra");
       console.error(err);
     } finally {
       setIsBuying(false);
@@ -191,8 +128,6 @@ export default function ProductCard({ product }: ProductCardProps) {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        credentials: "include",
-        cache: "no-store",
         body: JSON.stringify({ productId }),
       });
 
@@ -220,6 +155,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       className="group"
     >
       <div className="bg-white rounded-lg border border-pearl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300">
+        {/* Image */}
         <Link href={`/productos/${product.slug}`} className="block">
           <div className="relative aspect-square bg-pearl overflow-hidden">
             <Image
@@ -229,6 +165,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               className="object-cover group-hover:scale-105 transition-transform duration-500"
             />
 
+            {/* Badges */}
             <div className="absolute top-3 left-3 flex flex-col gap-2">
               {product.isNew && (
                 <div className="flex items-center gap-1 bg-champagne text-ivory text-xs font-medium px-3 py-1 rounded-full">
@@ -249,12 +186,14 @@ export default function ProductCard({ product }: ProductCardProps) {
               )}
             </div>
 
+            {/* Stock Out Badge */}
             {product.stock === 0 && (
               <div className="absolute top-3 left-3 bg-graphite/90 text-ivory text-xs font-medium px-3 py-1 rounded-full">
                 Sin stock
               </div>
             )}
 
+            {/* Wishlist Button */}
             <button
               onClick={handleToggleWishlist}
               className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-all ${
@@ -267,6 +206,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               <Heart className={`h-4 w-4 ${isInWishlist ? "fill-current" : ""}`} />
             </button>
 
+            {/* Stock Status */}
             {product.stock > 0 && product.stock <= 5 && !isLowStock && (
               <div className="absolute bottom-3 left-3 bg-white/90 text-graphite text-xs font-medium px-3 py-1 rounded-full">
                 En stock • 24-48h
@@ -280,6 +220,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           </div>
         </Link>
 
+        {/* Content */}
         <div className="p-4">
           <Link href={`/productos/${product.slug}`}>
             <div className="mb-2">
@@ -293,21 +234,26 @@ export default function ProductCard({ product }: ProductCardProps) {
             </div>
           </Link>
 
-          {product.description && (
-            <p className="text-sm text-graphite/70 mb-3 line-clamp-2">{product.description}</p>
+        {product.description && (
+            <p className="text-sm text-graphite/70 mb-3 line-clamp-2">
+              {product.description}
+            </p>
           )}
 
+          {/* Price */}
           <div className="mb-4">
-            <p className="text-2xl font-bold text-champagne">{product.price.toFixed(2)} €</p>
+            <p className="text-2xl font-bold text-champagne">
+              {product.price.toFixed(2)} €
+            </p>
           </div>
 
+          {/* Action Buttons */}
           <div className="space-y-2">
             <button
               onClick={handleAddToCart}
               disabled={isAdding || product.stock === 0}
               className="w-full px-4 py-2.5 bg-champagne text-ivory rounded-lg hover:bg-opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
               aria-label="Añadir al carrito"
-              type="button"
             >
               {product.stock === 0 ? "Sin stock" : isAdding ? "Añadiendo..." : "Añadir al carrito"}
             </button>
@@ -317,12 +263,11 @@ export default function ProductCard({ product }: ProductCardProps) {
               disabled={isBuying || product.stock === 0}
               className="w-full px-4 py-2.5 bg-graphite text-ivory rounded-lg hover:bg-opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
               aria-label="Comprar ahora"
-              type="button"
             >
               {isBuying ? "Procesando..." : "Comprar ahora"}
             </button>
 
-            <Link
+            <Link 
               href={`/productos/${product.slug}`}
               className="block w-full text-center text-sm text-graphite hover:text-champagne transition-colors underline-offset-2 hover:underline py-1"
             >
