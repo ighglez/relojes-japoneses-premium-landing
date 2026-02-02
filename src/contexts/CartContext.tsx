@@ -5,7 +5,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 import { toast } from "sonner";
 import { trackAddToCart } from "@/lib/analytics";
 
-const CART_EVENT = "cart:updated";
+const CART_EVENT = "cart:updated"; // <- usa este en todo el cliente
 
 type ApiCartItem = {
   id: number;
@@ -23,7 +23,7 @@ type ApiCartItem = {
 };
 
 interface CartItem {
-  id: number;
+  id: number;               // cart item id
   productId: number;
   name: string;
   brand: string;
@@ -44,23 +44,36 @@ interface CartContextType {
   removeByProductId: (productId: number) => Promise<void>;
   clearCart: () => Promise<void>;
   refreshCart: () => Promise<void>;
+  isDrawerOpen: boolean;
+  openDrawer: () => void;
+  closeDrawer: () => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 function ensureGuestSessionId(): string {
-  let sid = localStorage.getItem("guest_session_id");
+  let sid = null;
+  try {
+    sid = localStorage.getItem("guest_session_id");
+  } catch {}
   if (!sid) {
     sid = `guest_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-    localStorage.setItem("guest_session_id", sid);
+    try {
+      localStorage.setItem("guest_session_id", sid);
+    } catch {}
   }
-  return sid;
+  return sid!;
 }
 
 function buildHeaders(json = false) {
   const headers: Record<string, string> = {};
   if (json) headers["Content-Type"] = "application/json";
-  const token = localStorage.getItem("bearer_token");
+
+  let token: string | null = null;
+  try {
+    token = localStorage.getItem("bearer_token");
+  } catch {}
+
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   } else {
@@ -88,28 +101,35 @@ function mapApiItems(apiItems: ApiCartItem[] | undefined | null): CartItem[] {
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  const openDrawer = () => setIsDrawerOpen(true);
+  const closeDrawer = () => setIsDrawerOpen(false);
 
   const fetchCart = async () => {
     try {
       const headers = buildHeaders(false);
+
+      // /api/cart/get acepta ?sessionId= para guests y Authorization para users
       const url = new URL("/api/cart/get", window.location.origin);
 
-      const token = localStorage.getItem("bearer_token");
+      let token: string | null = null;
+      try {
+        token = localStorage.getItem("bearer_token");
+      } catch {}
+
       if (!token) {
         url.searchParams.set("sessionId", ensureGuestSessionId());
       }
 
-      const res = await fetch(url.toString(), {
-        headers,
-        cache: "no-store",
-        credentials: "include",
-      });
+      const res = await fetch(url.toString(), { headers, cache: "no-store" });
       if (!res.ok) throw new Error("Respuesta no OK");
 
       const data = await res.json();
       setItems(mapApiItems(data.items));
     } catch (e) {
       console.error("Error fetching cart:", e);
+      // sin toast para no molestar en primer render
     } finally {
       setIsLoading(false);
     }
@@ -117,9 +137,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     fetchCart();
+
+    // Compatibilidad: escuchamos ambos nombres, pero usamos CART_EVENT en todo el código nuevo
     const onUpdated = () => fetchCart();
     window.addEventListener(CART_EVENT, onUpdated);
-    // compat (por si algo disparase el viejo nombre)
     window.addEventListener("cartUpdated", onUpdated);
 
     return () => {
@@ -131,7 +152,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const addItem: CartContextType["addItem"] = async (product) => {
     try {
       const headers = buildHeaders(true);
-      const token = localStorage.getItem("bearer_token");
+
+      let token: string | null = null;
+      try {
+        token = localStorage.getItem("bearer_token");
+      } catch {}
 
       const body: Record<string, any> = {
         productId: product.id,
@@ -142,8 +167,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch("/api/cart/add", {
         method: "POST",
         headers,
-        credentials: "include",
-        cache: "no-store",
         body: JSON.stringify(body),
       });
 
@@ -154,8 +177,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
       await fetchCart();
       window.dispatchEvent(new Event(CART_EVENT));
+      openDrawer(); // Open drawer after adding
       toast.success("Añadido al carrito");
 
+      // analytics
       trackAddToCart({
         id: product.id,
         name: product.name,
@@ -173,7 +198,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const updateQuantity: CartContextType["updateQuantity"] = async (itemId, quantity) => {
     try {
       const headers = buildHeaders(true);
-      const token = localStorage.getItem("bearer_token");
+
+      let token: string | null = null;
+      try {
+        token = localStorage.getItem("bearer_token");
+      } catch {}
 
       const body: Record<string, any> = { itemId, quantity };
       if (!token) body.sessionId = ensureGuestSessionId();
@@ -181,8 +210,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch("/api/cart/update", {
         method: "PATCH",
         headers,
-        credentials: "include",
-        cache: "no-store",
         body: JSON.stringify(body),
       });
 
@@ -191,7 +218,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         throw new Error(data?.error || "Error al actualizar cantidad");
       }
 
-      setItems(mapApiItems((data as any).items));
+      setItems(mapApiItems(data.items));
       window.dispatchEvent(new Event(CART_EVENT));
     } catch (e: any) {
       console.error("updateQuantity:", e);
@@ -202,15 +229,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const removeItem: CartContextType["removeItem"] = async (itemId) => {
     try {
       const headers = buildHeaders(false);
-      const token = localStorage.getItem("bearer_token");
+
+      let token: string | null = null;
+      try {
+        token = localStorage.getItem("bearer_token");
+      } catch {}
+
       const sp = new URLSearchParams({ itemId: String(itemId) });
       if (!token) sp.set("sessionId", ensureGuestSessionId());
 
       const res = await fetch(`/api/cart/remove?${sp.toString()}`, {
         method: "DELETE",
         headers,
-        credentials: "include",
-        cache: "no-store",
       });
 
       const data = await res.json().catch(() => ({}));
@@ -218,7 +248,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         throw new Error(data?.error || "Error al eliminar del carrito");
       }
 
-      setItems(mapApiItems((data as any).items));
+      setItems(mapApiItems(data.items));
       window.dispatchEvent(new Event(CART_EVENT));
       toast.success("Producto eliminado del carrito");
     } catch (e: any) {
@@ -227,6 +257,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Utilidad: por si algún componente sólo conoce productId
   const removeByProductId: CartContextType["removeByProductId"] = async (productId) => {
     const item = items.find((it) => it.productId === productId);
     if (item) return removeItem(item.id);
@@ -259,11 +290,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         addItem,
         updateQuantity,
-        removeItem,
-        removeByProductId,
-        clearCart,
-        refreshCart,
-      }}
+          removeItem,
+          removeByProductId,
+          clearCart,
+          refreshCart,
+          isDrawerOpen,
+          openDrawer,
+          closeDrawer,
+        }}
+
     >
       {children}
     </CartContext.Provider>
