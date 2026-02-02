@@ -174,12 +174,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Sincronización inmediata con los datos devueltos
-      if (data.items) {
-        setItems(mapApiItems(data.items));
-      } else {
-        await fetchCart();
-      }
-
+      await fetchCart();
       window.dispatchEvent(new Event(CART_EVENT));
       toast.success("Añadido al carrito", { id: "cart-add-success" });
 
