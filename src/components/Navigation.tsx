@@ -6,12 +6,13 @@ import { useSession } from "@/lib/auth-client";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { Menu, X, ShoppingCart, Heart } from "lucide-react";
+import { useCart } from "@/contexts/CartContext";
 
 export default function Navigation() {
   const { data: session } = useSession();
   const pathname = usePathname();
+  const { itemCount, subtotal, openDrawer } = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
 
   const navLinks = [
@@ -21,27 +22,6 @@ export default function Navigation() {
     { href: "/#resenas", label: "Reseñas" },
     { href: "/#contacto", label: "Contacto" },
   ];
-
-  // Fetch cart count
-  const fetchCartCount = async () => {
-    try {
-      const token = localStorage.getItem("bearer_token");
-      const sessionId = localStorage.getItem("guest_session_id");
-
-      const headers: any = {};
-      if (token) headers.Authorization = `Bearer ${token}`;
-
-      const url = sessionId ? `/api/cart/get?sessionId=${sessionId}` : `/api/cart/get`;
-      const response = await fetch(url, { headers });
-
-      if (response.ok) {
-        const data = await response.json();
-        setCartCount(data.itemCount || 0);
-      }
-    } catch (error) {
-      console.error("Error fetching cart count:", error);
-    }
-  };
 
   // Fetch wishlist count (only for authenticated users)
   const fetchWishlistCount = async () => {
@@ -68,24 +48,18 @@ export default function Navigation() {
   };
 
   useEffect(() => {
-    fetchCartCount();
     fetchWishlistCount();
     
-    // Listen for cart and wishlist updates
-    const handleCartUpdate = () => fetchCartCount();
+    // Listen for wishlist updates
     const handleWishlistUpdate = () => fetchWishlistCount();
-    
-    window.addEventListener("cartUpdated", handleCartUpdate);
     window.addEventListener("wishlistUpdated", handleWishlistUpdate);
     
     // Also refresh periodically
     const interval = setInterval(() => {
-      fetchCartCount();
       fetchWishlistCount();
     }, 30000); // Every 30 seconds
     
     return () => {
-      window.removeEventListener("cartUpdated", handleCartUpdate);
       window.removeEventListener("wishlistUpdated", handleWishlistUpdate);
       clearInterval(interval);
     };
@@ -149,37 +123,42 @@ export default function Navigation() {
             </div>
 
             {/* Auth Links, Wishlist & Cart */}
-            <div className="hidden md:flex items-center space-x-4">
+            <div className="hidden md:flex items-center space-x-6">
               {/* Cart Button */}
-              <Link
-                href="/carrito"
-                className="relative p-2 hover:bg-pearl rounded-lg transition-colors"
-                aria-label="Carrito"
-              >
-                <ShoppingCart className="h-5 w-5 text-graphite" />
-                {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-champagne text-ivory text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                    {cartCount}
-                  </span>
-                )}
-              </Link>
+              <div className="flex items-center space-x-4">
+                <span className="text-[11px] font-bold text-graphite/40 uppercase tracking-widest">
+                  {subtotal.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                </span>
+                <button
+                  onClick={openDrawer}
+                  className="relative p-2 hover:bg-pearl rounded-lg transition-colors group"
+                  aria-label="Abrir Carrito"
+                >
+                  <ShoppingCart className="h-5 w-5 text-graphite group-hover:text-champagne transition-colors" />
+                  {itemCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-[#4CAF50] text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center border-2 border-ivory">
+                      {itemCount}
+                    </span>
+                  )}
+                </button>
+              </div>
 
               {/* Wishlist Button (only for authenticated users) */}
               {session?.user && (
                 <Link
                   href="/favoritos"
-                  className="relative p-2 hover:bg-pearl rounded-lg transition-colors"
+                  className="relative p-2 hover:bg-pearl rounded-lg transition-colors group"
                   aria-label="Favoritos"
                 >
-                  <Heart className="h-5 w-5 text-graphite" />
+                  <Heart className="h-5 w-5 text-graphite group-hover:text-red-500 transition-colors" />
                   {wishlistCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center border-2 border-ivory">
                       {wishlistCount}
                     </span>
                   )}
                 </Link>
               )}
-              
+            
               {session?.user ? (
                 <Link
                   href="/mi-cuenta"
@@ -207,7 +186,7 @@ export default function Navigation() {
                   </Link>
                   <Link
                     href="/registrarse"
-                    className="px-4 py-2 text-sm font-medium bg-champagne text-ivory rounded-lg hover:bg-opacity-90 transition-all duration-300"
+                    className="px-4 py-2 text-sm font-medium bg-graphite text-ivory rounded-lg hover:bg-black transition-all duration-300"
                     aria-label="Registrarse"
                   >
                     Registrarse
@@ -219,18 +198,18 @@ export default function Navigation() {
             {/* Mobile menu button */}
             <div className="flex md:hidden items-center gap-2">
               {/* Mobile Cart Button */}
-              <Link
-                href="/carrito"
+              <button
+                onClick={openDrawer}
                 className="relative p-2"
-                aria-label="Carrito"
+                aria-label="Abrir Carrito"
               >
                 <ShoppingCart className="h-5 w-5 text-graphite" />
-                {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-champagne text-ivory text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                    {cartCount}
+                {itemCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-[#4CAF50] text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center border-2 border-ivory">
+                    {itemCount}
                   </span>
                 )}
-              </Link>
+              </button>
 
               {/* Mobile Wishlist Button */}
               {session?.user && (
@@ -241,7 +220,7 @@ export default function Navigation() {
                 >
                   <Heart className="h-5 w-5 text-graphite" />
                   {wishlistCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center border-2 border-ivory">
                       {wishlistCount}
                     </span>
                   )}
@@ -320,7 +299,7 @@ export default function Navigation() {
                     </Link>
                     <Link
                       href="/registrarse"
-                      className="block px-4 py-2 text-sm font-medium bg-champagne text-ivory rounded-lg text-center"
+                      className="block px-4 py-2 text-sm font-medium bg-graphite text-ivory rounded-lg text-center"
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       Registrarse
