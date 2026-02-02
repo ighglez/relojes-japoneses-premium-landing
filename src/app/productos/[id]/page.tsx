@@ -1,14 +1,40 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Heart, ArrowLeft, Loader2, Bell, Sparkles, Award, Shield, Truck, CreditCard, FileText } from "lucide-react";
+import { 
+  Heart, 
+  ArrowLeft, 
+  Loader2, 
+  Bell, 
+  Sparkles, 
+  Award, 
+  Shield, 
+  Truck, 
+  CreditCard, 
+  FileText,
+  Layers,
+  Cpu,
+  Palette,
+  Maximize2,
+  CircleDashed,
+  Settings,
+  ShieldCheck,
+  Users,
+  Ruler,
+  Waves,
+  Search,
+  Watch,
+  Clock,
+  ChevronRight
+} from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
+import { useSession } from "@/lib/auth-client";
 import { toast } from "sonner";
 import { trackProductView } from "@/lib/analytics";
 
@@ -22,6 +48,15 @@ interface Product {
   description: string | null;
   movement: string | null;
   diameter: string | null;
+  calibre: string | null;
+  caseBack: string | null;
+  thickness: string | null;
+  glassMaterial: string | null;
+  strapMaterial: string | null;
+  strapType: string | null;
+  gender: string | null;
+  warranty: string | null;
+  availabilityDate: string | null;
   color: string | null;
   waterResistance: string | null;
   price: number;
@@ -31,12 +66,14 @@ interface Product {
   isNew: boolean;
   isExclusive: boolean;
   images: string[] | string | null;
+  features?: string[];
 }
 
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { addItem } = useCart();
+  const { addItem, openDrawer } = useCart();
+  const { data: session } = useSession();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
@@ -63,8 +100,26 @@ export default function ProductDetailPage() {
         price: product.price,
         category: product.category,
       });
+      checkWishlistStatus(product.id);
     }
   }, [product]);
+
+  const checkWishlistStatus = async (productId: number) => {
+    const token = localStorage.getItem("bearer_token");
+    if (!token) return;
+
+    try {
+      const response = await fetch("/api/wishlist/get", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setIsInWishlist(data.some((item: any) => item.productId === productId));
+      }
+    } catch (error) {
+      console.error("Error checking wishlist status:", error);
+    }
+  };
 
   const fetchProduct = async (slug: string) => {
     try {
@@ -108,7 +163,15 @@ export default function ProductDetailPage() {
     if (!product || product.stock === 0) return;
     setIsAdding(true);
     try {
-      await addItem(product);
+      await addItem({
+        id: product.id,
+        name: product.name,
+        brand: product.brand,
+        reference: product.reference,
+        price: product.price
+      });
+    } catch (error) {
+      console.error("Error adding to cart:", error);
     } finally {
       setIsAdding(false);
     }
@@ -118,19 +181,28 @@ export default function ProductDetailPage() {
     if (!product || product.stock === 0) return;
     setIsBuying(true);
     try {
-      await addItem(product);
-      router.push("/carrito");
+      await addItem({
+        id: product.id,
+        name: product.name,
+        brand: product.brand,
+        reference: product.reference,
+        price: product.price
+      });
+      router.push("/pagar");
+    } catch (error) {
+      console.error("Error buying now:", error);
     } finally {
       setIsBuying(false);
     }
   };
 
   const handleToggleWishlist = async () => {
-    const token = localStorage.getItem("bearer_token");
-    if (!token) {
-      toast.error("Debes iniciar sesión para usar la lista de deseos");
+    if (!session?.user) {
+      toast.error("Debes iniciar sesión para añadir a favoritos");
       return;
     }
+    const token = localStorage.getItem("bearer_token");
+    if (!token) return;
 
     try {
       const method = isInWishlist ? "DELETE" : "POST";
@@ -145,6 +217,7 @@ export default function ProductDetailPage() {
 
       if (response.ok) {
         setIsInWishlist(!isInWishlist);
+        window.dispatchEvent(new Event("wishlistUpdated"));
         toast.success(isInWishlist ? "Eliminado de favoritos" : "Añadido a favoritos");
       }
     } catch (error) {
@@ -208,271 +281,277 @@ export default function ProductDetailPage() {
   const isLowStock = product.stock > 0 && product.stock <= 2;
 
   return (
-    <div className="min-h-screen bg-ivory">
+    <div className="min-h-screen bg-white">
       <Navigation />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Back Button */}
-        <motion.button
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-graphite/70 hover:text-champagne transition-colors mb-8"
-          aria-label="Volver a la tienda"
-        >
-          <ArrowLeft className="h-5 w-5" />
-          <span>Volver a la tienda</span>
-        </motion.button>
+        {/* Breadcrumb */}
+        <nav className="flex items-center gap-2 text-sm text-graphite/50 mb-8 overflow-x-auto whitespace-nowrap">
+          <Link href="/" className="hover:text-champagne transition-colors">Inicio</Link>
+          <ChevronRight className="h-4 w-4" />
+          <Link href="/productos" className="hover:text-champagne transition-colors">Tienda</Link>
+          <ChevronRight className="h-4 w-4" />
+          <span className="text-graphite font-medium">{product.name}</span>
+        </nav>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          {/* Image */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 mb-20">
+          {/* Left: Image Container */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="relative aspect-square bg-white rounded-lg border border-pearl overflow-hidden"
+            className="relative"
           >
-            <Image
-              src={imageUrl}
-              alt={`${product.brand} ${product.name}`}
-              fill
-              className="object-cover"
-              priority
-            />
+            <div className="aspect-square bg-white rounded-xl border border-pearl overflow-hidden group shadow-sm">
+              <Image
+                src={imageUrl}
+                alt={`${product.brand} ${product.name}`}
+                fill
+                className="object-cover transition-transform duration-700 group-hover:scale-105"
+                priority
+              />
 
-            {/* Badges */}
-            <div className="absolute top-6 left-6 flex flex-col gap-2">
-              {product.isNew && (
-                <div className="flex items-center gap-2 bg-champagne text-ivory text-sm font-medium px-4 py-2 rounded-lg">
-                  <Sparkles className="h-4 w-4" />
-                  Nuevo
-                </div>
-              )}
-              {product.isExclusive && (
-                <div className="flex items-center gap-2 bg-graphite text-ivory text-sm font-medium px-4 py-2 rounded-lg">
-                  <Award className="h-4 w-4" />
-                  Exclusivo
-                </div>
-              )}
-              {isLowStock && (
-                <div className="bg-red-500 text-white text-sm font-medium px-4 py-2 rounded-lg">
-                  {product.stock === 1 ? "Última unidad" : `Solo quedan ${product.stock} unidades`}
+              {/* Badges on Image */}
+              <div className="absolute top-4 left-4 flex flex-col gap-2">
+                {product.isNew && (
+                  <span className="bg-[#4CAF50] text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded shadow-sm">
+                    Nuevo
+                  </span>
+                )}
+                {product.isExclusive && (
+                  <span className="bg-graphite text-ivory text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded shadow-sm">
+                    Edición Limitada
+                  </span>
+                )}
+                {isLowStock && (
+                  <span className="bg-red-500 text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded shadow-sm">
+                    Últimas unidades
+                  </span>
+                )}
+              </div>
+
+              {product.stock === 0 && (
+                <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
+                  <span className="bg-graphite text-ivory px-6 py-3 rounded-lg font-bold uppercase tracking-widest shadow-xl">
+                    Agotado
+                  </span>
                 </div>
               )}
             </div>
-
-            {product.stock === 0 && (
-              <div className="absolute top-6 left-6 bg-graphite/90 text-ivory px-4 py-2 rounded-lg font-medium">
-                Sin stock
-              </div>
-            )}
           </motion.div>
 
-          {/* Details */}
+          {/* Right: Product Details */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.1 }}
+            className="flex flex-col"
           >
-            <div className="mb-4">
-              <p className="text-sm text-champagne font-medium uppercase tracking-wide mb-2">
+            <div className="mb-6">
+              <h2 className="text-sm font-bold text-champagne uppercase tracking-[0.2em] mb-3">
                 {product.brand} • {product.series}
-              </p>
-              <h1 className="font-heading text-4xl md:text-5xl font-medium text-graphite mb-2">
+              </h2>
+              <h1 className="font-heading text-4xl md:text-5xl font-semibold text-graphite mb-4 leading-tight">
                 {product.name}
               </h1>
-              <p className="text-graphite/60">Referencia: {product.reference}</p>
+              <p className="text-graphite/40 font-mono text-xs uppercase tracking-widest">
+                REF: {product.reference}
+              </p>
             </div>
 
-            <div className="mb-8">
-              <p className="text-4xl font-bold text-champagne mb-2">
-                {product.price.toFixed(2)} {product.currency}
+            <div className="mb-8 p-6 bg-ivory rounded-xl border border-pearl inline-block self-start min-w-[200px]">
+              <div className="flex items-baseline gap-3">
+                <span className="text-3xl font-bold text-graphite">
+                  {product.price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                </span>
+                <span className="text-xs text-graphite/40 line-through">
+                  {(product.price * 1.2).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                </span>
+              </div>
+              <p className="text-[10px] text-graphite/40 uppercase tracking-widest mt-2">
+                IVA Incluido • Envío Gratuito
               </p>
-              {product.stock > 0 ? (
-                <p className="text-sm text-green-600 font-medium">
-                  ✓ En stock • Envío en 24-48 horas
-                </p>
-              ) : (
-                <p className="text-sm text-red-600 font-medium">Sin stock disponible</p>
-              )}
             </div>
 
             {product.description && (
-              <div className="mb-8">
-                <h2 className="font-heading text-xl font-medium text-graphite mb-3">
-                  Descripción
-                </h2>
-                <p className="text-graphite/70 leading-relaxed">{product.description}</p>
+              <div className="mb-10">
+                <p className="text-graphite/70 leading-relaxed text-sm lg:text-base">
+                  {product.description}
+                </p>
               </div>
             )}
 
-            {/* Specifications */}
-            <div className="mb-8 bg-white rounded-lg border border-pearl p-6">
-              <h2 className="font-heading text-xl font-medium text-graphite mb-4">
-                Especificaciones
-              </h2>
-              <ul className="space-y-2">
-                {product.movement && (
-                  <li className="flex justify-between text-sm">
-                    <span className="text-graphite/60">Movimiento:</span>
-                    <span className="font-medium text-graphite">{product.movement}</span>
-                  </li>
-                )}
-                {product.diameter && (
-                  <li className="flex justify-between text-sm">
-                    <span className="text-graphite/60">Diámetro:</span>
-                    <span className="font-medium text-graphite">{product.diameter}</span>
-                  </li>
-                )}
-                {product.waterResistance && (
-                  <li className="flex justify-between text-sm">
-                    <span className="text-graphite/60">Resistencia al agua:</span>
-                    <span className="font-medium text-graphite">{product.waterResistance}</span>
-                  </li>
-                )}
-                {product.color && (
-                  <li className="flex justify-between text-sm">
-                    <span className="text-graphite/60">Color:</span>
-                    <span className="font-medium text-graphite">{product.color}</span>
-                  </li>
-                )}
-                <li className="flex justify-between text-sm">
-                  <span className="text-graphite/60">Serie:</span>
-                  <span className="font-medium text-graphite">{product.series}</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* Actions */}
-            <div className="space-y-4 mb-8">
+            {/* Actions Buttons */}
+            <div className="space-y-4 mb-10">
               {product.stock > 0 ? (
                 <>
-                  <button
-                    onClick={handleBuyNow}
-                    disabled={isBuying}
-                    className="w-full py-4 bg-champagne text-ivory font-medium text-lg rounded-lg hover:bg-opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
-                    aria-label="Comprar ahora"
-                  >
-                    {isBuying ? "Procesando..." : "Comprar ahora"}
-                  </button>
-                  <button
-                    onClick={handleAddToCart}
-                    disabled={isAdding}
-                    className="w-full py-3 border-2 border-pearl text-graphite font-medium rounded-lg hover:bg-pearl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                    aria-label="Añadir al carrito"
-                  >
-                    {isAdding ? "Añadiendo..." : "Añadir al carrito"}
-                  </button>
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <button
+                      onClick={handleBuyNow}
+                      disabled={isBuying}
+                      className="flex-1 py-4 bg-graphite text-ivory font-bold uppercase tracking-widest text-sm rounded-lg hover:bg-black transition-all disabled:opacity-50 shadow-lg shadow-graphite/10"
+                    >
+                      {isBuying ? "Procesando..." : "Comprar ahora"}
+                    </button>
+                    <button
+                      onClick={handleAddToCart}
+                      disabled={isAdding}
+                      className="flex-1 py-4 border-2 border-champagne text-champagne font-bold uppercase tracking-widest text-sm rounded-lg hover:bg-champagne hover:text-ivory transition-all disabled:opacity-50"
+                    >
+                      {isAdding ? "Añadiendo..." : "Añadir al carrito"}
+                    </button>
+                  </div>
+                  
                   <button
                     onClick={handleToggleWishlist}
-                    className={`w-full py-3 border-2 font-medium rounded-lg transition-all flex items-center justify-center gap-2 ${
+                    className={`w-full py-4 border-2 font-bold uppercase tracking-widest text-xs rounded-lg transition-all flex items-center justify-center gap-2 ${
                       isInWishlist
-                        ? "border-red-500 text-red-500 hover:bg-red-50"
-                        : "border-pearl text-graphite hover:bg-pearl"
+                        ? "border-red-500 text-red-500 bg-red-50"
+                        : "border-pearl text-graphite/60 hover:border-graphite hover:text-graphite"
                     }`}
-                    aria-label={isInWishlist ? "Eliminar de favoritos" : "Añadir a favoritos"}
                   >
-                    <Heart className={`h-5 w-5 ${isInWishlist ? "fill-current" : ""}`} />
-                    {isInWishlist ? "Eliminar de favoritos" : "Añadir a favoritos"}
+                    <Heart className={`h-4 w-4 ${isInWishlist ? "fill-current" : ""}`} />
+                    {isInWishlist ? "En tus favoritos" : "Añadir a favoritos"}
                   </button>
                 </>
               ) : (
-                <form onSubmit={handleNotifyStock} className="space-y-3">
-                  <div className="flex gap-2">
+                <div className="bg-red-50 border border-red-100 rounded-xl p-6">
+                  <p className="text-red-800 font-bold text-sm uppercase tracking-widest mb-4">Agotado Temporalmente</p>
+                  <form onSubmit={handleNotifyStock} className="flex gap-2">
                     <input
                       type="email"
                       value={notifyEmail}
                       onChange={(e) => setNotifyEmail(e.target.value)}
-                      placeholder="tu@email.com"
+                      placeholder="Tu correo electrónico"
                       required
-                      className="flex-1 px-4 py-3 border border-pearl rounded-lg focus:outline-none focus:ring-2 focus:ring-champagne/50"
-                      aria-label="Email para notificación de stock"
+                      className="flex-1 px-4 py-3 bg-white border border-red-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-200"
                     />
                     <button
                       type="submit"
                       disabled={notifying}
-                      className="px-6 py-3 bg-graphite text-ivory font-medium rounded-lg hover:bg-graphite/90 transition-all disabled:opacity-50 flex items-center gap-2"
-                      aria-label="Notificarme cuando esté disponible"
+                      className="px-6 py-3 bg-graphite text-white font-bold uppercase tracking-widest text-[10px] rounded-lg hover:bg-black transition-all"
                     >
-                      <Bell className="h-5 w-5" />
-                      {notifying ? "..." : "Notificar"}
+                      {notifying ? "..." : "Avisar"}
                     </button>
-                  </div>
-                  <p className="text-xs text-graphite/60">
-                    Te avisaremos cuando este producto esté disponible
-                  </p>
-                </form>
+                  </form>
+                </div>
               )}
             </div>
 
-            {/* Trust Badges */}
-            <div className="bg-champagne/10 border border-champagne/30 rounded-lg p-6">
-              <div className="grid grid-cols-2 gap-4 text-sm text-graphite">
-                <div className="flex items-center gap-3">
-                  <Shield className="h-5 w-5 text-champagne flex-shrink-0" />
-                  <span>Pago seguro</span>
+            {/* Trust Icons Section */}
+            <div className="grid grid-cols-2 gap-y-4 gap-x-8 pt-8 border-t border-pearl">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-ivory rounded-full">
+                  <Shield className="h-4 w-4 text-champagne" />
                 </div>
-                <div className="flex items-center gap-3">
-                  <Truck className="h-5 w-5 text-champagne flex-shrink-0" />
-                  <span>Envío asegurado</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-graphite/60">Garantía 3 Años</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-ivory rounded-full">
+                  <Truck className="h-4 w-4 text-champagne" />
                 </div>
-                <div className="flex items-center gap-3">
-                  <CreditCard className="h-5 w-5 text-champagne flex-shrink-0" />
-                  <span>Autenticidad garantizada</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-graphite/60">Envío 24h</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-ivory rounded-full">
+                  <CreditCard className="h-4 w-4 text-champagne" />
                 </div>
-                <div className="flex items-center gap-3">
-                  <FileText className="h-5 w-5 text-champagne flex-shrink-0" />
-                  <span>Factura emitida</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-graphite/60">Transferencia Segura</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-ivory rounded-full">
+                  <Award className="h-4 w-4 text-champagne" />
                 </div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-graphite/60">100% Original</span>
               </div>
             </div>
           </motion.div>
         </div>
 
-        {/* Related Products */}
-        {relatedProducts.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="mt-20"
-          >
-            <h2 className="font-heading text-3xl font-medium text-graphite mb-8">
-              Modelos relacionados
+        {/* Technical Features Section - Now full width below */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mb-20"
+        >
+          <div className="bg-ivory/50 rounded-2xl p-8 lg:p-12 border border-pearl">
+            <h2 className="font-heading text-2xl lg:text-3xl font-semibold text-graphite mb-10 text-center uppercase tracking-widest">
+              Características Técnicas
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {relatedProducts.map((related) => {
-                let relatedImageUrl = "/images/products/placeholder-watch.webp";
-                if (related.images) {
-                  if (typeof related.images === "string") {
-                    try {
-                      const parsed = JSON.parse(related.images);
-                      relatedImageUrl = Array.isArray(parsed) && parsed.length > 0 ? parsed[0] : relatedImageUrl;
-                    } catch {
-                      relatedImageUrl = related.images;
-                    }
-                  } else if (Array.isArray(related.images) && related.images.length > 0) {
-                    relatedImageUrl = related.images[0];
-                  }
-                }
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-12 gap-y-10">
+              {/* Technical Item Component */}
+              <TechnicalItem icon={<Layers />} label="Colección" value={product.series} />
+              <TechnicalItem icon={<Cpu />} label="Calibre" value={product.calibre} />
+              <TechnicalItem icon={<Maximize2 />} label="Diámetro" value={product.diameter} />
+              <TechnicalItem icon={<Users />} label="Género" value={product.gender || 'Hombre'} />
+              <TechnicalItem icon={<Palette />} label="Color Caja" value={product.color} />
+              <TechnicalItem icon={<CircleDashed />} label="Fondo" value={product.caseBack} />
+              <TechnicalItem icon={<Ruler />} label="Grosor" value={product.thickness ? `${product.thickness} mm` : null} />
+              <TechnicalItem icon={<Watch />} label="Pulsera" value={product.strapMaterial} />
+              <TechnicalItem icon={<Waves />} label="Resistencia" value={product.waterResistance} />
+              <TechnicalItem icon={<Clock />} label="Movimiento" value={product.movement} />
+              <TechnicalItem icon={<Search />} label="Cristal" value={product.glassMaterial} />
+              <TechnicalItem icon={<ShieldCheck />} label="Garantía" value={`${product.warranty || '3'} Años`} />
+              
+              {/* Features Tags */}
+              {product.features && product.features.length > 0 && (
+                <div className="col-span-full mt-6 pt-10 border-t border-pearl flex flex-wrap gap-2 justify-center">
+                  {product.features.map((f, i) => (
+                    <span key={i} className="px-4 py-1.5 bg-white border border-pearl rounded-full text-[10px] font-bold uppercase tracking-widest text-graphite/60 shadow-sm">
+                      {f}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </motion.div>
 
-                return (
-                  <Link key={related.id} href={`/productos/${related.slug}`}>
-                    <div className="bg-white rounded-lg border border-pearl overflow-hidden hover:shadow-lg transition-all">
-                      <div className="relative aspect-square bg-pearl">
+        {/* Related Products Section */}
+        {relatedProducts.length > 0 && (
+          <section className="mt-20 text-center">
+            <h2 className="font-heading text-3xl font-semibold text-graphite mb-4 uppercase tracking-[0.2em]">
+              También te puede interesar
+            </h2>
+            <p className="text-graphite/40 text-sm uppercase tracking-widest mb-12">Modelos de la misma colección</p>
+            
+              <div className="flex flex-wrap justify-center gap-8">
+                {relatedProducts.map((related) => {
+                  let relatedImageUrl = "/images/products/placeholder-watch.webp";
+                  if (related.images) {
+                    if (typeof related.images === "string") {
+                      try {
+                        const parsed = JSON.parse(related.images);
+                        relatedImageUrl = Array.isArray(parsed) && parsed.length > 0 ? parsed[0] : relatedImageUrl;
+                      } catch {
+                        relatedImageUrl = related.images;
+                      }
+                    } else if (Array.isArray(related.images) && related.images.length > 0) {
+                      relatedImageUrl = related.images[0];
+                    }
+                  }
+
+                  return (
+                    <Link key={related.id} href={`/productos/${related.slug}`} className="group w-full sm:w-[calc(50%-1rem)] lg:w-[calc(25%-1.5rem)] max-w-[300px]">
+                      <div className="bg-white rounded-xl border border-pearl overflow-hidden hover:shadow-xl transition-all duration-500 h-full">
+                        <div className="relative aspect-square bg-ivory overflow-hidden">
+
                         <Image
                           src={relatedImageUrl}
                           alt={related.name}
                           fill
-                          className="object-cover"
+                          className="object-cover transition-transform duration-700 group-hover:scale-110"
                         />
+                        <div className="absolute inset-0 bg-graphite/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
-                      <div className="p-4">
-                        <p className="text-xs text-champagne font-medium mb-1">{related.brand}</p>
-                        <h3 className="font-heading text-sm font-medium text-graphite mb-1 line-clamp-1">
+                      <div className="p-6 text-left">
+                        <p className="text-[10px] text-champagne font-bold uppercase tracking-widest mb-2">{related.brand}</p>
+                        <h3 className="font-heading text-sm font-semibold text-graphite mb-3 line-clamp-1 group-hover:text-champagne transition-colors">
                           {related.name}
                         </h3>
-                        <p className="text-lg font-bold text-champagne">
-                          {related.price.toFixed(2)} €
+                        <p className="text-lg font-bold text-graphite">
+                          {related.price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                         </p>
                       </div>
                     </div>
@@ -480,11 +559,27 @@ export default function ProductDetailPage() {
                 );
               })}
             </div>
-          </motion.div>
+          </section>
         )}
       </main>
 
       <Footer />
+    </div>
+  );
+}
+
+// Sub-component for technical items to keep main JSX clean
+function TechnicalItem({ icon, label, value }: { icon: React.ReactNode, label: string, value: string | null }) {
+  if (!value || value === 'N/A') return null;
+  return (
+    <div className="flex items-start gap-4">
+      <div className="p-2.5 bg-white rounded-lg text-graphite/30 shadow-sm border border-pearl">
+        {React.cloneElement(icon as React.ReactElement, { className: "h-5 w-5" })}
+      </div>
+      <div>
+        <p className="text-[10px] font-bold text-graphite/40 uppercase tracking-widest mb-1">{label}</p>
+        <p className="text-sm font-semibold text-graphite leading-tight">{value}</p>
+      </div>
     </div>
   );
 }
