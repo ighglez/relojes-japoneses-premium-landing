@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { CartProvider } from "@/contexts/CartContext";
+import CartDrawer from "@/components/cart/CartDrawer";
 import VisualEditsMessenger from "../visual-edits/VisualEditsMessenger";
 import ErrorReporter from "@/components/ErrorReporter";
 import Script from "next/script";
@@ -97,10 +98,18 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body>
-        <CartProvider>
-          {children}
-          <Toaster />
-        </CartProvider>
+        <Script
+          id="orchids-browser-logs"
+          src="https://slelguoygbfzlpylpxfs.supabase.co/storage/v1/object/public/scripts/orchids-browser-logs.js"
+          strategy="afterInteractive"
+          data-orchids-project-id="4ba70643-0d78-45b7-8b0e-0692f8660ba6"
+        />
+          <CartProvider>
+            {children}
+            <CartDrawer />
+            <Toaster />
+          </CartProvider>
+
       </body>
     </html>
   );
