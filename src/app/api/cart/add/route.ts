@@ -66,13 +66,15 @@ async function getFullCart(userId: string | null, sessionId: string | null) {
   return { items, subtotal, itemCount };
 }
 
+// Sustituye la parte del try-catch inicial por esto para ver logs reales:
 export async function POST(request: NextRequest) {
   try {
-    let body: any = null;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json({ error: 'JSON inválido' }, { status: 400 });
+    const body = await request.json();
+    console.log("Cuerpo recibido en API:", body); // ESTO APARECERÁ EN VERCEL LOGS
+
+    const productId = Number(body.productId);
+    if (isNaN(productId)) {
+      return NextResponse.json({ error: `ID de producto no válido: ${body.productId}` }, { status: 400 });
     }
 
     const productId = Number(body.productId);
