@@ -21,7 +21,7 @@ export default function Hero() {
             className="space-y-6"
           >
             <h1 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-medium text-graphite leading-tight">
-              Distribuidor independiente especializado en relojes automáticos japoneses.
+              Distribuidor independiente
             </h1>
             
             <p className="text-lg text-graphite/80 leading-relaxed">
@@ -69,7 +69,7 @@ export default function Hero() {
             </div>
 
             <p className="text-xs text-graphite/60 pt-2">
-              Última actualización del catálogo: octubre 2025
+              Última actualización del catálogo: febrero 2026
             </p>
           </motion.div>
 
