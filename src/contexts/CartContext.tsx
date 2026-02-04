@@ -52,17 +52,13 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 function ensureGuestSessionId(): string {
-  let sid = null;
-  try {
-    sid = localStorage.getItem("guest_session_id");
-  } catch {}
-  if (!sid) {
-    sid = `guest_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-    try {
-      localStorage.setItem("guest_session_id", sid);
-    } catch {}
+  if (typeof window === "undefined") return "";
+  let sid = localStorage.getItem("iwatch_cart_id");
+  if (!sid || sid === "null" || sid === "undefined") {
+    sid = `sid_${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem("iwatch_cart_id", sid);
   }
-  return sid!;
+  return sid;
 }
 
 function buildHeaders(json = false) {
