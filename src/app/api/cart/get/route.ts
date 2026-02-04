@@ -12,101 +12,78 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    let guestSessionId = searchParams.get("sessionId") ?? null;
-
     const h = await headers();
-    // NEW: si no vino en query, lee cabecera x-session-id
-    if (!guestSessionId) {
-      const hdr = h.get("x-session-id");
-      if (hdr) guestSessionId = hdr;
-    }
+    
+    // Prioridad: 1. Query param, 2. Header, 3. null
+    let guestSessionId = searchParams.get("sessionId") || h.get('x-session-id') || null;
 
     const session = await auth.api.getSession({ headers: h }).catch(() => null);
     const userId = session?.user?.id ?? null;
 
-    if (!userId && !guestSessionId) {
-      return NextResponse.json(
-        { items: [], subtotal: 0, itemCount: 0 },
-        { status: 200 }
-      );
+    // Si no hay nada para identificar al usuario, devolvemos carrito vacío sin error
+    if (!userId && (!guestSessionId || guestSessionId === "null")) {
+      return NextResponse.json({ items: [], subtotal: 0, itemCount: 0 });
     }
 
-    const whereCart = userId
-      ? eq(cartItems.userId, userId)
-      : eq(cartItems.sessionId, guestSessionId!);
+    const whereCondition = userId 
+      ? eq(cartItems.userId, userId) 
+      : eq(cartItems.sessionId, guestSessionId as string);
 
     const rows = await db
       .select({
         id: cartItems.id,
         productId: cartItems.productId,
         quantity: cartItems.quantity,
-        createdAt: cartItems.createdAt,
-        updatedAt: cartItems.updatedAt,
         p_id: products.id,
         p_name: products.name,
         p_brand: products.brand,
-        p_reference: products.reference,
         p_price: products.price,
-        p_stock: products.stock,
-        p_images: products.images,
         p_imageUrl: products.imageUrl,
+        p_images: products.images,
       })
       .from(cartItems)
       .leftJoin(products, eq(cartItems.productId, products.id))
-      .where(whereCart);
-
-    if (rows.length === 0) {
-      return NextResponse.json(
-        { items: [], subtotal: 0, itemCount: 0 },
-        { status: 200 }
-      );
-    }
+      .where(whereCondition);
 
     let subtotal = 0;
     let itemCount = 0;
 
-    const items = rows
-      .map((r) => {
-        if (!r.p_id) return null;
-        let imageUrl: string | null = r.p_imageUrl ?? null;
-        if (!imageUrl && r.p_images) {
-          try {
-            const imgs = typeof r.p_images === "string" ? JSON.parse(r.p_images) : r.p_images;
-            if (Array.isArray(imgs) && typeof imgs[0] === "string") {
-              imageUrl = imgs[0] as string;
-            }
-          } catch {}
-        }
-        const line = (r.p_price ?? 0) * r.quantity;
-        subtotal += line;
-        itemCount += r.quantity;
+    const items = rows.map((r) => {
+      if (!r.p_id) return null;
+      
+      const price = Number(r.p_price || 0);
+      subtotal += price * r.quantity;
+      itemCount += r.quantity;
 
-        return {
-          id: r.id,
-          productId: r.productId,
-          quantity: r.quantity,
-          product: {
-            id: r.p_id,
-            name: r.p_name,
-            brand: r.p_brand,
-            reference: r.p_reference,
-            price: r.p_price,
-            stock: r.p_stock,
-            imageUrl,
-          },
-        };
-      })
-      .filter(Boolean);
+      let imageUrl = r.p_imageUrl;
+      if (!imageUrl && r.p_images) {
+        try {
+          const imgs = typeof r.p_images === 'string' ? JSON.parse(r.p_images) : r.p_images;
+          imageUrl = Array.isArray(imgs) ? imgs[0] : imageUrl;
+        } catch (e) {}
+      }
 
-    return NextResponse.json(
-      { items, subtotal: Number(subtotal.toFixed(2)), itemCount },
-      { status: 200 }
-    );
+      return {
+        id: r.id,
+        productId: r.productId,
+        quantity: r.quantity,
+        product: {
+          id: r.p_id,
+          name: r.p_name,
+          brand: r.p_brand,
+          price: price,
+          imageUrl: imageUrl,
+        },
+      };
+    }).filter(Boolean);
+
+    return NextResponse.json({ 
+      items, 
+      subtotal: Number(subtotal.toFixed(2)), 
+      itemCount 
+    });
   } catch (error) {
-    console.error("GET /api/cart/get error:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor: " + (error instanceof Error ? error.message : "Error desconocido") },
-      { status: 500 }
-    );
+    console.error("DETALLE ERROR CART:", error);
+    return NextResponse.json({ error: "Error en servidor" }, { status: 500 });
   }
 }
