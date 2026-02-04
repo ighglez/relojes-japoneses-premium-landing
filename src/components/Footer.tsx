@@ -40,7 +40,7 @@ export default function Footer() {
           <div className="space-y-4">
             <h3 className="font-heading text-2xl font-medium">IWatchWorks</h3>
             <p className="text-ivory/70 text-sm leading-relaxed max-w-md">
-              Distribuidor especializado en relojes automáticos. 
+              Distribuidor especializado. 
               Autenticidad garantizada, envío asegurado.
             </p>
             <p className="text-xs text-ivory/50 pt-4">
