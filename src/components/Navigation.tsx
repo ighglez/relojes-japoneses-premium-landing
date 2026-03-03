@@ -6,14 +6,18 @@ import { useSession } from "@/lib/auth-client";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { Menu, X, ShoppingCart, Heart } from "lucide-react";
-import { useCart } from "@/contexts/CartContext";
+import { useCart } from "@/hooks/useCart"; // ← CAMBIO: usar el nuevo hook
 
 export default function Navigation() {
   const { data: session } = useSession();
   const pathname = usePathname();
-  const { itemCount, subtotal, openDrawer } = useCart();
+  const { cart } = useCart(); // ← CAMBIO: usar useCart en vez de CartContext
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [wishlistCount, setWishlistCount] = useState(0);
+
+  // Extraer valores del cart
+  const itemCount = cart.itemCount || 0;
+  const subtotal = cart.subtotal || 0;
 
   const navLinks = [
     { href: "/", label: "Inicio" },
@@ -129,8 +133,8 @@ export default function Navigation() {
                 <span className="text-[11px] font-bold text-graphite/40 uppercase tracking-widest">
                   {subtotal.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                 </span>
-                <button
-                  onClick={openDrawer}
+                <Link
+                  href="/carrito"
                   className="relative p-2 hover:bg-pearl rounded-lg transition-colors group"
                   aria-label="Abrir Carrito"
                 >
@@ -140,7 +144,7 @@ export default function Navigation() {
                       {itemCount}
                     </span>
                   )}
-                </button>
+                </Link>
               </div>
 
               {/* Wishlist Button (only for authenticated users) */}
@@ -198,8 +202,8 @@ export default function Navigation() {
             {/* Mobile menu button */}
             <div className="flex md:hidden items-center gap-2">
               {/* Mobile Cart Button */}
-              <button
-                onClick={openDrawer}
+              <Link
+                href="/carrito"
                 className="relative p-2"
                 aria-label="Abrir Carrito"
               >
@@ -209,7 +213,7 @@ export default function Navigation() {
                     {itemCount}
                   </span>
                 )}
-              </button>
+              </Link>
 
               {/* Mobile Wishlist Button */}
               {session?.user && (
