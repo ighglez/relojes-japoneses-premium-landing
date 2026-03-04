@@ -1,8 +1,3 @@
-/ ============================================
-// ARCHIVO 1: src/hooks/useCart.ts
-// CREAR - Versión simple que usa /api/cart/add
-// ============================================
-
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -45,11 +40,12 @@ export function useCart() {
     if (!sessionId) {
       sessionId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       localStorage.setItem("cart_session_id", sessionId);
+      console.log('[useCart] Created sessionId:', sessionId);
     }
     return sessionId;
   }, []);
 
-  // Fetch cart - Usa el endpoint GET de /api/cart
+  // Fetch cart - USA EL ENDPOINT QUE FUNCIONA: /api/cart (GET)
   const fetchCart = useCallback(async () => {
     try {
       const userId = session?.user?.id;
@@ -64,15 +60,22 @@ export function useCart() {
       if (userId) params.append("userId", userId);
       else if (sessionId) params.append("sessionId", sessionId);
 
-      const res = await fetch(`/api/cart?${params}`);
+      // USA /api/cart (no /api/cart/get)
+      const url = `/api/cart?${params}`;
+      console.log('[useCart] Fetching from:', url);
+
+      const res = await fetch(url);
       
       if (!res.ok) {
-        throw new Error('Failed to fetch cart');
+        const errorText = await res.text();
+        console.error('[useCart] Fetch error:', res.status, errorText);
+        throw new Error(`Failed to fetch cart: ${res.status}`);
       }
 
       const data = await res.json();
+      console.log('[useCart] Fetched cart:', data);
       
-      // Adaptar respuesta de /api/cart a formato esperado
+      // Adaptar respuesta a formato esperado
       setCart({
         items: data.items || [],
         subtotal: data.cartTotal || 0,
@@ -83,17 +86,20 @@ export function useCart() {
     } catch (error) {
       console.error('[useCart] Fetch error:', error);
       setError((error as Error).message);
+      // No mostrar error al usuario si simplemente no hay items
       setCart({ items: [], subtotal: 0, itemCount: 0 });
     }
   }, [session, getSessionId]);
 
-  // Add to cart - Usa tu endpoint /api/cart/add
+  // Add to cart - USA /api/cart/add
   const addToCart = async (productId: number, quantity: number = 1) => {
     setIsLoading(true);
     setError(null);
     
     try {
       const sessionId = getSessionId();
+
+      console.log('[useCart] Adding to cart:', { productId, quantity, sessionId });
 
       const body = {
         productId,
@@ -107,13 +113,16 @@ export function useCart() {
         body: JSON.stringify(body),
       });
 
-      const data = await res.json();
-
       if (!res.ok) {
-        throw new Error(data.error || "Failed to add to cart");
+        const errorText = await res.text();
+        console.error('[useCart] Add error:', res.status, errorText);
+        throw new Error(`Failed to add to cart: ${res.status}`);
       }
 
-      // La respuesta de /api/cart/add ya trae el cart completo
+      const data = await res.json();
+      console.log('[useCart] Add response:', data);
+
+      // La respuesta de /api/cart/add trae el cart completo
       if (data.ok) {
         setCart({
           items: data.items || [],
@@ -122,7 +131,7 @@ export function useCart() {
         });
       }
       
-      // Dispatch event
+      // Dispatch event para otros componentes
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent("cart:updated"));
       }
@@ -136,7 +145,7 @@ export function useCart() {
     }
   };
 
-  // Update quantity
+  // Update quantity - USA /api/cart (PUT)
   const updateQuantity = async (itemId: number, quantity: number) => {
     setIsLoading(true);
     setError(null);
@@ -149,8 +158,7 @@ export function useCart() {
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to update cart');
+        throw new Error('Failed to update cart');
       }
 
       if (typeof window !== 'undefined') {
@@ -167,7 +175,7 @@ export function useCart() {
     }
   };
 
-  // Remove item
+  // Remove item - USA /api/cart (DELETE)
   const removeItem = async (itemId: number) => {
     setIsLoading(true);
     setError(null);
@@ -178,8 +186,7 @@ export function useCart() {
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to remove item');
+        throw new Error('Failed to remove item');
       }
 
       if (typeof window !== 'undefined') {
@@ -214,8 +221,7 @@ export function useCart() {
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to clear cart');
+        throw new Error('Failed to clear cart');
       }
 
       if (typeof window !== 'undefined') {
@@ -235,6 +241,7 @@ export function useCart() {
   // Listen to cart:updated events
   useEffect(() => {
     const handleCartUpdate = () => {
+      console.log('[useCart] Cart updated event received');
       fetchCart();
     };
 
@@ -246,6 +253,7 @@ export function useCart() {
 
   // Initial fetch
   useEffect(() => {
+    console.log('[useCart] Initial fetch');
     fetchCart();
   }, [fetchCart]);
 
